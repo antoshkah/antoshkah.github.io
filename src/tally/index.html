@@ -48,23 +48,25 @@
 
       button { touch-action: manipulation; } /* no double-tap zoom when tapping fast */
 
-      /* numbers only, two per row; an odd last one sits centred */
+      /* one tally per row: greyed name on the left, number on the right */
       #list {
-        width: min(100%, 320px);
+        width: min(100%, 260px);
         display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 8px;
+        flex-direction: column;
       }
       body.empty #list { display: none; }
-      .box {
-        width: calc(50% - 4px);
-        padding: 14px 4px;
-        text-align: center;
-        font-size: 3.4rem;
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .row .name { flex: 1; min-width: 0; font-size: 1.1rem; color: var(--muted); overflow-wrap: anywhere; }
+      .row .count {
+        padding: 8px 0;
+        font-size: 3rem;
         line-height: 1.1;
+        text-align: right;
         font-variant-numeric: tabular-nums;
-        overflow-wrap: anywhere;
       }
 
       .plus {
@@ -160,7 +162,7 @@
     <button class="plus" id="plus" aria-label="Add">+</button>
     <input class="newbox" id="newbox" maxlength="80" enterkeyhint="done" hidden autocomplete="off" />
 
-    <!-- tap a number; tap the big number to add, − to subtract, 0 for reset/delete; tap outside to close -->
+    <!-- hold a row; tap the big number to add, − to subtract, 0 for reset/delete; tap outside to close -->
     <dialog id="editDialog">
       <div id="editName"></div>
       <button id="editCount" aria-label="Add one"></button>
@@ -246,12 +248,29 @@
         document.body.classList.toggle("empty", items.length === 0);
 
         for (const item of items) {
-          const box = document.createElement("button");
-          box.className = "box";
-          box.textContent = item.count;
-          box.setAttribute("aria-label", `${item.name}: ${item.count}`);
-          box.addEventListener("click", () => openEdit(item));
-          list.append(box);
+          const row = document.createElement("div");
+          row.className = "row";
+          const name = document.createElement("span");
+          name.className = "name";
+          name.textContent = item.name;
+          const count = document.createElement("button");
+          count.className = "count";
+          count.textContent = item.count;
+          count.setAttribute("aria-label", `Add one to ${item.name}`);
+          row.append(name, count);
+
+          // tap the number: +1
+          count.addEventListener("click", () => {
+            item.count++;
+            item.log.push(Date.now());
+            save();
+            count.textContent = item.count;
+            if (navigator.vibrate) navigator.vibrate(10);
+          });
+          // hold anywhere on the row: popup with −, reset and delete
+          onLongPress(row, () => openEdit(item));
+
+          list.append(row);
         }
       }
 
@@ -301,6 +320,7 @@
           editing.log.pop();
         }
         save();
+        render(); // keep the list behind the popup in sync
         $("editCount").textContent = editing.count;
         if (navigator.vibrate) navigator.vibrate(10);
       }
@@ -334,11 +354,13 @@
           editing.count = 0;
           editing.log = [];
           save();
+          render();
           $("editCount").textContent = 0;
           $("zeroDialog").close();
         } else if (editing && pending === "delete") {
           items = items.filter((i) => i !== editing);
           save();
+          render();
           $("zeroDialog").close();
           $("editDialog").close();
         }
