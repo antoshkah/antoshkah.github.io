@@ -23,6 +23,13 @@
         src: url("../fonts/ia-writer-mono-latin-700-normal.ttf") format("truetype");
         font-weight: 700;
       }
+      /* the real italic (e.g. "stats" on the welcome page), instead of a slanted fake */
+      @font-face {
+        font-family: "iA Writer Mono";
+        src: url("../fonts/ia-writer-mono-latin-400-italic.ttf") format("truetype");
+        font-weight: 400;
+        font-style: italic;
+      }
       :root {
         color-scheme: dark;
         --bg: #141414;
@@ -93,7 +100,7 @@
       .intro .ic { width: 52px; height: 52px; }
       .intro[hidden] { display: none; }
 
-      /* the star: white on dark, bigger while there are no stats */
+      /* the plus (id "star", its old shape): add a stat, hold for the menu. bigger while there are no stats */
       .star {
         width: 56px;
         height: 56px;
@@ -101,12 +108,12 @@
         place-items: center;
         color: var(--fg);
       }
-      .star svg { width: 32px; height: 32px; fill: currentColor; }
+      .star svg { width: 32px; height: 32px; stroke-width: 2.4; }
       .empty .star { width: 80px; height: 80px; }
       .empty .star svg { width: 52px; height: 52px; }
       .star[hidden] { display: none; }
 
-      /* adding a stat: just a cursor in empty space, then ★ (counted) or clock (timed) below */
+      /* adding a stat: just a cursor in empty space, then # (counted) or clock (timed) below */
       .composer { width: min(100%, 260px); display: flex; flex-direction: column; align-items: center; gap: 6px; }
       .composer[hidden] { display: none; }
       .newbox {
@@ -125,8 +132,10 @@
       }
       .kinds { display: flex; gap: 28px; }
       .kinds button { width: 56px; height: 56px; display: grid; place-items: center; color: var(--fg); }
-      .kinds .fill { width: 30px; height: 30px; fill: currentColor; }
       .kinds .ic { width: 30px; height: 30px; }
+      /* # for counted stats is the real character, so it follows the chosen font */
+      .hash { font-family: var(--font); font-size: 2rem; font-weight: bold; line-height: 1; }
+      .d-kinds .hash { font-size: 1.2rem; }
 
       /* timed stats: smaller text (the values are wider), greyed out while paused */
       .row .count.timer { font-size: 2.2rem; }
@@ -142,6 +151,26 @@
         font-family: inherit;
       }
       dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+      /* full pages (settings, export, yes / no): the whole screen, content centred */
+      dialog.page {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        border: 0;
+        padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px);
+        text-align: center;
+      }
+      dialog.page[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      dialog.page > * { width: min(100%, 300px); }
+      .settings { width: min(100%, 260px); }
+      .icons button[hidden] { display: none; }
+      /* 👍 👎 sit close together, centred */
+      #confirmView .icons, #exportConfirm .icons { justify-content: center; gap: 36px; }
+      /* export + eye, with "(read-only)" hanging underneath (doesn't push the icons out of line) */
+      .icons button.labeled { position: relative; }
+      .labeled .sub { position: absolute; top: 100%; left: 50%; translate: -50% 0; white-space: nowrap; font-size: 0.7rem; font-weight: normal; color: var(--muted); }
 
       /* plain text button lists (zero, menu, intro) */
       .choices { display: grid; }
@@ -156,7 +185,6 @@
       .ic { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
       .glyph { font-size: 1.9rem; font-weight: 900; line-height: 1; }
       #menuDialog { width: min(86vw, 280px); }
-      #exportDialog { width: min(92vw, 300px); }
       #helpDialog .legend .duo { display: flex; height: 44px; align-items: center; }
       #helpDialog .legend .duo .ic { width: 30px; height: 30px; }
       .icons button.pair { width: 72px; padding: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 2px; }
@@ -176,7 +204,6 @@
       .viewing-label[hidden], #viewBack[hidden] { display: none; }
       #viewBack { width: 56px; height: 56px; display: grid; place-items: center; color: var(--muted); }
       body.viewing .row .count { cursor: default; }
-      #zeroDialog { width: min(72vw, 220px); }
       /* the whole app is bold, so the export question goes regular to let its key words stand out */
       .confirm-text { font-weight: normal; }
       .confirm-text b { font-weight: bold; color: var(--fg); }
@@ -207,7 +234,10 @@
       .edit-row { display: flex; justify-content: space-around; }
       .edit-row button { width: 64px; height: 56px; font-size: 2rem; line-height: 1; color: var(--muted); display: grid; place-items: center; }
       .edit-row button[hidden] { display: none; }
-      #helpDialog .ic { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
+      .edit-row button.danger { color: var(--danger); }
+      #editCount.timer { cursor: pointer; }
+      /* icons inside the guide's sentences sit in the text; only those, so the demo keeps its own sizes */
+      #helpDialog p .ic { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
 
       /* how to use */
       /* how to use: a full page, everything centred */
@@ -236,6 +266,57 @@
       #helpDialog .demo { text-align: left; }
       /* first visit: the guide matches the off-white page (dark text), the demo stays dark */
       .fresh #helpDialog { background: var(--fg); color: var(--bg); }
+
+      /* welcome page (first visit): the app's usual dark look, even though the rest of the first visit is off-white */
+      #welcomeDialog { background: var(--bg); color: var(--fg); }
+      .welcome { width: min(100%, 300px); display: flex; flex-direction: column; align-items: center; gap: 26px; }
+      .clawd { width: 72px; height: 40px; overflow: visible; animation: walkin 1.6s steps(12) both, bob 1.4s ease-in-out 2.2s infinite; }
+      .clawd rect { fill: #d97757; }
+      .clawd .legs-a { animation: stepA 0.26s step-end 6; }
+      .clawd .legs-b { opacity: 0; animation: stepB 0.26s step-end 6; }
+      .clawd .lids { opacity: 0; animation: blink 4s step-end 2.4s infinite; }
+      @keyframes walkin { from { translate: -140px 0; } to { translate: 0 0; } }
+      @keyframes stepA { 0% { opacity: 1; } 50% { opacity: 0; } }
+      @keyframes stepB { 0% { opacity: 0; } 50% { opacity: 1; } }
+      @keyframes blink { 0% { opacity: 0; } 90% { opacity: 1; } 94% { opacity: 0; } }
+      @keyframes bob { 50% { transform: translateY(-3px); } }
+      .pb-text { font-size: 0.85rem; white-space: nowrap; overflow: hidden; width: 0; animation: type 1.1s steps(22) 1.7s forwards; }
+      .pb-text b { color: #d97757; }
+      @keyframes type { to { width: 22ch; } }
+      @media (prefers-reduced-motion: reduce) {
+        .clawd, .clawd * { animation: none !important; }
+        .pb-text { animation: none; width: auto; }
+      }
+      .warn { margin: 0; font-weight: normal; font-size: 0.85rem; line-height: 1.45; }
+      .warn b { font-weight: bold; }
+      /* the browser: just the dim placeholder until typed in, no line */
+      .w-browser {
+        width: 100%; /* room for the whole placeholder */
+        font: inherit;
+        font-size: 16px; /* 16px+ stops iOS zooming in */
+        padding: 0;
+        text-align: center;
+        color: inherit;
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        outline: none;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      /* a touch smaller than typed text so it fits on the narrowest phones (typed text stays 16px: no iOS zoom) */
+      .w-browser::placeholder { color: var(--muted); font-size: 0.85em; }
+      .os { display: flex; gap: 28px; }
+      .os button { padding: 0 2px; color: var(--muted); transition: color 0.15s; }
+      .os button.on { color: var(--fg); }
+      /* search and thumbs up side by side. search stays dim until iOS / Android and a browser are filled in */
+      .w-actions { display: flex; align-items: center; gap: 36px; }
+      .search { padding: 0; color: var(--muted); transition: color 0.15s; }
+      .search.ready { color: var(--fg); }
+      /* the magnifier only fills ~17 of its 24 units, the thumb ~20, so the boxes differ to make them look the same size */
+      .search .ic { display: block; width: 40px; height: 40px; }
+      .welcome .done { width: auto; padding: 0; margin: 0; }
+      .welcome .done .ic { display: block; width: 34px; height: 34px; }
       .fresh #helpDialog .legend .ic, .fresh #helpDialog .legend b { color: var(--bg); }
       #helpDialog h2 { font-size: 0.85rem; color: var(--muted); margin: 20px 0 6px; text-transform: lowercase; }
       #helpDialog h2:first-child { margin-top: 0; }
@@ -269,13 +350,12 @@
       .d-name { flex: 1; font-size: 0.75rem; color: var(--muted); }
       .d-count { font-size: 1.9rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
       .d-star { width: 32px; height: 32px; display: grid; place-items: center; }
-      .d-star svg { width: 20px; height: 20px; fill: currentColor; }
+      .d-star svg { width: 20px; height: 20px; }
       .d-compose { display: flex; flex-direction: column; align-items: center; gap: 4px; }
       .d-typed { font-size: 0.95rem; min-height: 1.3em; }
       .d-kinds { display: flex; gap: 18px; }
       .d-kinds span { width: 28px; height: 28px; display: grid; place-items: center; }
       .d-kinds svg { width: 18px; height: 18px; }
-      .d-kinds .d-fill { fill: currentColor; }
       .d-count.timer { font-size: 1.35rem; }
       .d-big.timer { font-size: 2rem; }
       .d-caret { display: inline-block; width: 1px; height: 0.9em; margin-left: 1px; vertical-align: -0.1em; background: var(--fg); animation: blink 1s steps(1) infinite; }
@@ -315,7 +395,11 @@
       .d-btns { width: 150px; display: flex; justify-content: space-around; color: var(--muted); font-size: 1.3rem; line-height: 1; }
       .d-btns span { width: 30px; height: 26px; display: grid; place-items: center; }
       .d-btns .ic, .d-zero .ic { width: 18px; height: 18px; }
-      .d-zero { display: flex; gap: 6px; padding: 4px 8px; box-shadow: none; }
+      /* the yes / no page also fills the demo screen, like the real one */
+      .d-zero { left: 0; top: 0; width: 100%; height: 100%; border: 0; display: flex; box-shadow: none; transform: scale(0.97); flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+      .d-zero.on { transform: none; }
+      .d-ask { font-size: 0.75rem; color: var(--muted); }
+      .d-zbtns { display: flex; gap: 24px; }
       .d-zero span { width: 34px; height: 34px; display: grid; place-items: center; }
       /* the pointing-hand cursor; its fingertip sits exactly on the target point */
       .d-finger {
@@ -357,24 +441,14 @@
         85% { scale: 0.8; rotate: -3deg; }
         100% { scale: 0.8; rotate: 0deg; }
       }
-      /* big icon that flashes when reset / delete is picked */
-      .d-flash { position: absolute; left: 50%; top: 50%; translate: -50% -50%; opacity: 0; pointer-events: none; z-index: 1; }
-      .d-flash .ic { width: 64px; height: 64px; stroke-width: 1.8; }
-      .d-flash.go { animation: flash 0.7s ease-out; }
-      @keyframes flash {
-        0% { opacity: 0; scale: 0.5; }
-        30% { opacity: 1; scale: 1.05; }
-        100% { opacity: 0; scale: 1.35; }
-      }
-      /* delete: the row puffs away into a few specks */
       /* delete: the row vanishes and a few short lines burst out */
       .poof { animation: poof 0.15s forwards; }
       @keyframes poof { to { opacity: 0; } }
       .d-line {
         position: absolute;
-        width: 2px;
-        height: 10px;
-        margin: -5px 0 0 -1px;
+        width: 1.5px;
+        height: 6px;
+        margin: -3px 0 0 -0.75px;
         background: var(--fg);
         pointer-events: none;
         rotate: var(--a);
@@ -390,14 +464,48 @@
       @keyframes bump { 50% { transform: scale(1.15); } }
 
       /* settings */
-      #settingsDialog { width: min(88vw, 320px); padding: 16px; }
-      .fonts { display: grid; margin-bottom: 18px; }
-      .fonts button { padding: 10px 8px; text-align: center; color: var(--muted); }
-      .fonts button.on { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
-      .swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 8px; }
+      /* one line per setting: symbol on the left, value / name on the right */
+      .set-head { width: 100%; height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 2px; font-size: 0.9rem; }
+      .set-ic { width: 20px; height: 20px; flex: none; display: grid; place-items: center; color: var(--muted); font-size: 0.8rem; }
+      .set-val { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+      .set-val .dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--line); }
+      /* − 0.5s + */
+      .stepper { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 0 0 8px; transition: opacity 0.22s; }
+      .stepper button { width: 44px; height: 40px; font-size: 1.4rem; color: var(--muted); touch-action: none; }
+      .stepper span { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+      /* H☝ 2☝  /  0☝ 1☝ 2☝ */
+      .modes { display: flex; justify-content: center; gap: 22px; padding-bottom: 8px; }
+      .modes button { display: flex; align-items: center; gap: 1px; padding: 6px 8px; color: var(--muted); opacity: 0.55; transition: color 0.15s, opacity 0.15s; }
+      .modes button.on { color: var(--fg); opacity: 1; }
+      /* hold time, while timers open with a double tap */
+      .stepper.off { opacity: 0.3; pointer-events: none; }
+      .modes .finger { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+      .row.tappable { cursor: pointer; touch-action: manipulation; } /* no double-tap zoom */
+      .set-head .chev, .font-chev { width: 16px; height: 16px; color: var(--muted); transition: rotate 0.22s ease; }
+      .setting.open .chev { rotate: 180deg; }
+      /* the drop-down: 0fr → 1fr grows to fit whatever is inside */
+      .set-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.22s ease; }
+      .setting.open .set-body { grid-template-rows: 1fr; }
+      .set-inner { min-height: 0; overflow: hidden; opacity: 0; transition: opacity 0.22s ease; }
+      .setting.open .set-inner { opacity: 1; }
+      /* font: a column of all fonts, chosen one first. closed it's cut to one line (the chosen font);
+         open it grows to show them all. Aa and the arrow sit on top of the first line */
+      #fontSetting { position: relative; }
+      #fontSetting .font-ic { position: absolute; left: 2px; top: 10px; z-index: 2; pointer-events: none; }
+      #fontSetting .font-chev { position: absolute; right: 2px; top: 12px; z-index: 2; pointer-events: none; }
+      .font-list { display: flex; flex-direction: column; height: 40px; overflow: hidden; transition: height 0.25s ease; }
+      #fontSetting.open .font-list { height: calc(var(--n) * 40px); }
+      /* right edge of the text matches the values on the other lines (chevron 16 + gap 10 + padding 2) */
+      /* the fonts under the top line fade in as the list opens and out as it folds, so the one
+         sliding up to the top never visibly crosses over them */
+      .font-list button { flex: none; height: 40px; padding: 0 28px 0 32px; text-align: right; font-size: 0.9rem; color: var(--muted); opacity: 0; transition: color 0.2s, opacity 0.2s ease; }
+      #fontSetting.open .font-list button { opacity: 1; }
+      /* the chosen font rides on top of the others, on the page colour, so nothing shows through it */
+      .font-list button:first-child { color: var(--fg); opacity: 1; position: relative; z-index: 1; background: var(--bg); }
+      .swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 0 14px; } /* room for the selected ring, so it stays inside the drop-down */
       .swatches button {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         border: 1px solid var(--line);
         display: grid;
@@ -405,7 +513,7 @@
         font-size: 1.1rem;
       }
       .swatches button.on { outline: 2px solid var(--fg); outline-offset: 2px; }
-      #settingsDialog .done { display: grid; place-items: center; width: 100%; padding: 12px; color: var(--muted); }
+      #settingsDialog .done { display: grid; place-items: center; width: 100%; padding: 8px; color: var(--muted); }
     </style>
     <script>
       // settings are applied here, before the page draws, so there's no flash of the wrong colours
@@ -423,15 +531,29 @@
         serif:   { label: "serif", css: 'Georgia, "Times New Roman", serif' },
         rounded: { label: "rounded", css: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif' },
       };
+      // hold times, in ms: 0.1s – 5s in 0.1s steps
+      const HOLD_MIN = 100, HOLD_MAX = 5000, HOLD_STEP = 100;
+      const holdOk = (v, fallback) => {
+        const n = Math.round(Number(v) / HOLD_STEP) * HOLD_STEP;
+        return Number.isFinite(n) && n >= HOLD_MIN && n <= HOLD_MAX ? n : fallback;
+      };
       const SETTINGS_KEY = "stats.settings";
       const OLD_SETTINGS_KEY = "stats.appearance"; // saved before the rename
 
       function loadSettings() {
         try {
           const l = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? localStorage.getItem(OLD_SETTINGS_KEY)) || {};
-          return { theme: THEMES[l.theme] ? l.theme : "dark", font: FONTS[l.font] ? l.font : "writer" };
+          return {
+            theme: THEMES[l.theme] ? l.theme : "dark",
+            font: FONTS[l.font] ? l.font : "writer",
+            hold: holdOk(l.hold, 500), // hold the star / a row to open things
+            // timed stats: what opens the stat page, and what pauses. never both double tap
+            timerOpen: l.timerOpen === "double" ? "double" : "hold",
+            // "off" (the default) = no tapping in the list, pause on the stat page only
+            timerPause: l.timerPause === "tap" ? "tap" : l.timerPause === "double" && l.timerOpen !== "double" ? "double" : "off",
+          };
         } catch {
-          return { theme: "dark", font: "writer" };
+          return { theme: "dark", font: "writer", hold: 500, timerOpen: "hold", timerPause: "off" };
         }
       }
 
@@ -479,11 +601,12 @@
         } catch {}
       }
 
-      // phone status bar matches the page: off-white on first visit, dark otherwise
+      // phone status bar matches the page: off-white on the first-visit screens, dark otherwise (welcome page included)
       function updateBar() {
         const t = THEMES[loadSettings().theme];
-        document.querySelector('meta[name="theme-color"]').content =
-          document.documentElement.classList.contains("fresh") ? t.fg : t.bg;
+        const welcome = document.getElementById("welcomeDialog");
+        const light = document.documentElement.classList.contains("fresh") && !(welcome && welcome.open);
+        document.querySelector('meta[name="theme-color"]').content = light ? t.fg : t.bg;
       }
 
       // set the empty / first-visit look before the page draws too
@@ -501,8 +624,8 @@
   <body>
     <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(read-only)</span></div>
     <div id="list"></div>
-    <button class="star" id="star" aria-label="Add a stat (hold for menu)">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></svg>
+    <button class="star" id="star" aria-label="Add a stat (hold for the menu)">
+      <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
     </button>
     <!-- first visit: ? and import, straight on the off-white page -->
     <div class="intro" id="intro" hidden>
@@ -510,11 +633,11 @@
       <button id="introImport" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
     </div>
     <button id="viewBack" aria-label="Stop viewing" hidden><svg class="ic"><use href="#i-exit" /></svg></button>
-    <!-- tap the star: type a name, then pick ★ (counted) or clock (timed, starts straight away) -->
+    <!-- tap the plus: type a name, then pick # (counted) or clock (timed, starts straight away) -->
     <div class="composer" id="composer" hidden>
       <input class="newbox" id="newbox" maxlength="80" enterkeyhint="done" autocomplete="off" aria-label="Stat name" />
       <div class="kinds">
-        <button id="makeCounter" aria-label="Counted stat"><svg class="fill" viewBox="0 0 24 24"><use href="#i-star" /></svg></button>
+        <button id="makeCounter" aria-label="Counted stat"><span class="hash">#</span></button>
         <button id="makeTimer" aria-label="Timed stat"><svg class="ic"><use href="#i-clock" /></svg></button>
       </div>
     </div>
@@ -526,41 +649,42 @@
       <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /></symbol>
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></symbol>
-      <symbol id="i-exit" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></symbol>
-      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></symbol>
+      <!-- leave: square door frame + arrow, sharp corners -->
+      <symbol id="i-exit" viewBox="0 0 24 24"><path d="M10 3H3v18h7M15 7l5 5-5 5M20 12H9" stroke-linejoin="miter" stroke-linecap="square" /></symbol>
+      <!-- plus (add a stat): straight lines, square ends -->
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="square" /></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /></symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
+      <symbol id="i-colour" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
+      <!-- the walkthrough's pointing glove, as an outline -->
+      <symbol id="i-finger" viewBox="0 0 24 24"><path d="M7.6 2.6a1.45 1.45 0 0 1 2.9 0V9.6a1.4 1.4 0 0 1 2.8 0v.7a1.4 1.4 0 0 1 2.8 0v.8a1.35 1.35 0 0 1 2.7 0V16c0 2-.7 3.5-2 4.6v2H9.4v-2c-.9-.7-1.6-1.5-2.3-2.5L3.7 14.6a1.45 1.45 0 0 1 2.2-1.9l1.7 1.8Z" /><path d="M10.5 9.6v3M13.3 10.3v2.5M16.1 11.1v2.2" /></symbol>
       <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" /></symbol>
-      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z" /></symbol>
+      <symbol id="i-press" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" /><circle cx="12" cy="12" r="8" stroke-dasharray="3 3" /></symbol>
       <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></symbol>
       <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 10v12M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /></symbol>
       <symbol id="i-down" viewBox="0 0 24 24"><path d="M17 14V2M9 18.12L10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /></symbol>
     </svg>
 
-    <!-- hold a row; counted: tap the big number to add, − to subtract; timed: pause / play.
-         X for reset/delete; tap outside to close -->
+    <!-- hold a row; counted: tap the big number to add, − to subtract; timed: tap the time to pause / resume.
+         reset and delete ask yes / no first; tap any empty space to close -->
     <dialog id="editDialog">
       <div id="editName"></div>
       <button id="editCount"></button>
       <div class="edit-row">
-        <button id="zeroBtn" aria-label="Reset or delete"><svg class="ic"><use href="#i-x" /></svg></button>
+        <button id="resetBtn" aria-label="Reset"><svg class="ic"><use href="#i-reset" /></svg></button>
+        <button id="deleteBtn" class="danger" aria-label="Delete"><svg class="ic"><use href="#i-trash" /></svg></button>
         <button id="minusBtn" aria-label="Subtract one">−</button>
-        <button id="pauseBtn" aria-label="Pause" hidden><svg class="ic"><use id="pauseIcon" href="#i-pause" /></svg></button>
       </div>
     </dialog>
 
-    <!-- tap the X -->
-    <dialog id="zeroDialog">
-      <div class="icons" id="choiceView">
-        <button id="resetBtn" aria-label="Reset"><svg class="ic"><use href="#i-reset" /></svg></button>
-        <button id="deleteBtn" class="danger" aria-label="Delete"><svg class="ic"><use href="#i-trash" /></svg></button>
-        <button id="cancelBtn" class="muted" aria-label="Back"><svg class="ic"><use href="#i-x" /></svg></button>
-      </div>
-      <!-- after picking reset or delete -->
-      <div class="choices" id="confirmView" hidden>
+    <!-- yes / no page: reset, delete, replacing stats on import (see ask()) -->
+    <dialog id="zeroDialog" class="page">
+      <div class="choices" id="confirmView">
         <div id="confirmText"></div>
         <div class="icons">
           <button id="yesBtn" class="danger" aria-label="Yes"><svg class="ic"><use href="#i-up" /></svg></button>
-          <button id="noBtn" class="muted" aria-label="No"><svg class="ic"><use href="#i-down" /></svg></button>
+          <button id="noBtn" class="muted" aria-label="No"><svg class="ic"><use id="noIcon" href="#i-down" /></svg></button>
         </div>
       </div>
     </dialog>
@@ -577,16 +701,17 @@
 
 
     <!-- menu → export -->
-    <dialog id="exportDialog">
+    <dialog id="exportDialog" class="page">
       <div class="icons" id="exportChoices">
         <button id="exportOnly" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
-        <button id="exportView" class="pair" aria-label="Export read-only">
+        <button id="exportView" class="pair labeled" aria-label="Export read-only">
           <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg>
+          <span class="sub">(read-only)</span>
         </button>
         <button id="exportClear" class="danger pair" aria-label="Export and clear">
           <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-trash" /></svg>
         </button>
-        <button id="exportCancel" class="muted" aria-label="Back"><svg class="ic"><use href="#i-x" /></svg></button>
+        <button id="exportCancel" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
       <!-- after picking export & clear -->
       <div class="choices" id="exportConfirm" hidden>
@@ -599,35 +724,94 @@
     </dialog>
     <input type="file" id="importFile" accept="application/json,.json" hidden />
 
-    <dialog id="settingsDialog">
-      <div class="fonts" id="fontList"></div>
-      <div class="swatches" id="themeList"></div>
+    <!-- settings page: each setting is one line; tap it to drop down the choices.
+         only the exit button leaves (back to the menu) -->
+    <dialog id="settingsDialog" class="page">
+     <div class="settings">
+      <!-- font: the chosen font is always the top line, the rest listed under it.
+           picking one slides it up to the top and the list folds away -->
+      <div class="setting" id="fontSetting">
+        <span class="set-ic font-ic">Aa</span>
+        <svg class="ic chev font-chev"><use href="#i-chev" /></svg>
+        <div class="font-list" id="fontList" role="listbox" aria-label="Font"></div>
+      </div>
+      <div class="setting">
+        <button class="set-head" aria-label="Colours"><svg class="ic set-ic"><use href="#i-colour" /></svg><span class="set-val" id="themeVal"></span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <div class="set-body"><div class="set-inner"><div class="swatches" id="themeList"></div></div></div>
+      </div>
+      <!-- hold: how long a hold is (star and stats), and whether timers open with a hold or a double tap.
+           double tap can only do one job, so picking it here or under pause moves the other off it -->
+      <div class="setting">
+        <button class="set-head"><svg class="ic set-ic"><use href="#i-press" /></svg><span class="set-val">hold</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <div class="set-body"><div class="set-inner">
+          <div class="stepper" id="holdStepper"><button data-step="hold:-1" aria-label="Shorter">−</button><span id="holdNum"></span><button data-step="hold:1" aria-label="Longer">+</button></div>
+          <!-- timers open with: H☝ = hold, 2☝ = double tap -->
+          <div class="modes">
+            <button data-mode="timerOpen:hold" aria-label="Hold to open timers"><span>H</span><svg class="finger"><use href="#i-finger" /></svg></button>
+            <button data-mode="timerOpen:double" aria-label="Double tap to open timers"><span>2</span><svg class="finger"><use href="#i-finger" /></svg></button>
+          </div>
+        </div></div>
+      </div>
+      <!-- pause: how timers are paused in the list. 0☝ = off (only on the stat page), 1☝ = tap, 2☝ = double tap -->
+      <div class="setting">
+        <button class="set-head"><svg class="ic set-ic"><use href="#i-pause" /></svg><span class="set-val">pause</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <div class="set-body"><div class="set-inner">
+          <div class="modes">
+            <button data-mode="timerPause:off" aria-label="No tapping, pause on the stat page only"><span>0</span><svg class="finger"><use href="#i-finger" /></svg></button>
+            <button data-mode="timerPause:tap" aria-label="Tap to pause"><span>1</span><svg class="finger"><use href="#i-finger" /></svg></button>
+            <button data-mode="timerPause:double" aria-label="Double tap to pause"><span>2</span><svg class="finger"><use href="#i-finger" /></svg></button>
+          </div>
+        </div></div>
+      </div>
       <button class="done" id="settingsDone" aria-label="Done"><svg class="ic"><use href="#i-exit" /></svg></button>
+     </div>
+    </dialog>
+
+    <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used,
+         and a search for adding it to the home screen with the blanks filled in -->
+    <dialog id="welcomeDialog" class="page">
+      <!-- every piece is a direct child of .welcome, so one gap spaces them all equally -->
+      <div class="welcome">
+        <svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges" aria-label="powered by Claude Code"></svg>
+        <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b></span>
+        <p class="warn"><b>heads up:</b> <i>stats</i> is made to be used as a web page on your phone, added to your home screen.</p>
+        <!-- iOS / Android, the browser, then search (googles how to add it to the home screen) next to the thumbs up -->
+        <div class="os">
+          <button data-os="iOS">iOS</button>
+          <button data-os="Android">Android</button>
+        </div>
+        <input id="wBrowser" class="w-browser" placeholder="[browser: safari, chrome, ...]" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Your browser" />
+        <div class="w-actions">
+          <button class="search" id="wSearch" aria-label="Search Google for how to add this to your home screen"><svg class="ic"><use href="#i-search" /></svg></button>
+          <button class="done" id="welcomeDone" aria-label="Continue"><svg class="ic"><use href="#i-up" /></svg></button>
+        </div>
+      </div>
     </dialog>
 
     <dialog id="helpDialog">
       <!-- animated walkthrough, driven by runDemo() -->
       <div class="demo" id="demo" aria-hidden="true">
         <div class="d-row" id="dRow" hidden><span class="d-name" id="dName">demo</span><span class="d-count" id="dCount">0</span></div>
-        <div class="d-star" id="dStar"><svg viewBox="0 0 24 24"><use href="#i-star" /></svg></div>
+        <div class="d-star" id="dStar"><svg class="ic"><use href="#i-plus" /></svg></div>
         <div class="d-compose" id="dBox" hidden>
           <div class="d-typed"><span id="dTyped"></span><span class="d-caret"></span></div>
           <div class="d-kinds">
-            <span id="dKStar"><svg class="d-fill" viewBox="0 0 24 24"><use href="#i-star" /></svg></span>
+            <span id="dKStar"><span class="hash">#</span></span>
             <span id="dKClock"><svg class="ic"><use href="#i-clock" /></svg></span>
           </div>
         </div>
         <div class="d-pop" id="dPop">
           <div class="d-name">demo</div>
           <div class="d-big" id="dBig">3</div>
-          <div class="d-btns"><span id="dX"><svg class="ic"><use href="#i-x" /></svg></span><span id="dMinus">−</span><span id="dPause" hidden><svg class="ic"><use id="dPauseIcon" href="#i-pause" /></svg></span></div>
+          <div class="d-btns"><span id="dReset"><svg class="ic"><use href="#i-reset" /></svg></span><span class="danger" id="dTrash"><svg class="ic"><use href="#i-trash" /></svg></span><span id="dMinus">−</span></div>
         </div>
         <div class="d-zero" id="dZero">
-          <span id="dReset"><svg class="ic"><use href="#i-reset" /></svg></span>
-          <span class="danger" id="dTrash"><svg class="ic"><use href="#i-trash" /></svg></span>
-          <span class="muted"><svg class="ic"><use href="#i-x" /></svg></span>
+          <div class="d-ask" id="dAsk"></div>
+          <div class="d-zbtns">
+            <span class="danger" id="dYes"><svg class="ic"><use href="#i-up" /></svg></span>
+            <span class="muted"><svg class="ic"><use href="#i-down" /></svg></span>
+          </div>
         </div>
-        <div class="d-flash" id="dFlash"><svg class="ic"><use id="dFlashIcon" href="#i-reset" /></svg></div>
         <div class="d-finger" id="dFinger">
           <svg viewBox="0 0 24 24">
             <!-- glove: index finger up, three curled fingers, thumb on the left, cuff at the wrist -->
@@ -637,12 +821,11 @@
         </div>
       </div>
 
-      <p>Hold the <b>★</b> to open the menu.
+      <p>Hold the <svg class="ic"><use href="#i-plus" /></svg> to open the menu.
       All stats and settings are stored <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" target="_blank" rel="noopener">locally</a>, and can be exported/imported via JSON.</p>
       <ul class="legend">
         <li><svg class="ic"><use href="#i-import" /></svg>imports JSON</li>
         <li><svg class="ic"><use href="#i-export" /></svg>exports JSON</li>
-        <li><span class="duo"><svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg></span>exports read-only JSON</li>
         <li><b>A</b>settings</li>
         <li><b>?</b>brings you back here</li>
       </ul>
@@ -788,7 +971,7 @@
         updateBar();
       }
 
-      // calls onLong after holding ~0.5s; swallows the click that follows
+      // calls onLong after holding for the hold time in settings (0.5s by default); swallows the click that follows
       function onLongPress(el, onLong) {
         let timer = null;
         let fired = false;
@@ -798,7 +981,7 @@
             fired = true;
             if (navigator.vibrate) navigator.vibrate(20);
             onLong();
-          }, 500);
+          }, settings.hold);
         });
         for (const ev of ["pointerup", "pointerleave", "pointercancel"]) {
           el.addEventListener(ev, () => clearTimeout(timer));
@@ -808,6 +991,65 @@
           if (fired) {
             e.stopImmediatePropagation();
             fired = false;
+          }
+        }, true);
+      }
+
+      // two taps closer together than this count as a double tap
+      const DOUBLE_TAP_MS = 300;
+
+      // a timed row in the list, anywhere on it. two settings decide what does what:
+      //   timerOpen:  "hold" | "double"  → opens the stat page
+      //   timerPause: "off" | "tap" | "double"  → pauses / resumes ("off": only on the stat page)
+      // never both "double". when opening is a double tap, a single tap has to wait
+      // DOUBLE_TAP_MS to be sure it isn't the start of one, then pauses.
+      function timerGesture(el, stat) {
+        let holdTimer = null, tapTimer = null, taps = 0, down = false, opened = false;
+        const open = () => {
+          opened = true;
+          clearTimeout(tapTimer);
+          taps = 0;
+          if (navigator.vibrate) navigator.vibrate(20);
+          openEdit(stat);
+        };
+        el.addEventListener("pointerdown", () => {
+          down = true;
+          opened = false;
+          if (settings.timerOpen === "hold") holdTimer = setTimeout(open, settings.hold);
+        });
+        el.addEventListener("pointerup", () => {
+          if (!down) return;
+          down = false;
+          clearTimeout(holdTimer);
+          if (opened) return;
+          const double = settings.timerOpen === "double" ? "open" : settings.timerPause === "double" ? "pause" : null;
+          if (!double) {
+            if (settings.timerPause === "tap") toggleTimer(stat); // plain tap, nothing to wait for
+            return;
+          }
+          taps++;
+          if (taps === 2) {
+            clearTimeout(tapTimer);
+            taps = 0;
+            return double === "open" ? open() : toggleTimer(stat);
+          }
+          tapTimer = setTimeout(() => {
+            taps = 0;
+            if (settings.timerPause === "tap") toggleTimer(stat); // it was just the one tap
+          }, DOUBLE_TAP_MS);
+        });
+        for (const ev of ["pointerleave", "pointercancel"]) {
+          el.addEventListener(ev, () => {
+            down = false;
+            clearTimeout(holdTimer);
+          });
+        }
+        el.addEventListener("contextmenu", (e) => e.preventDefault());
+        // the click that follows opening the stat page shouldn't land on it
+        el.addEventListener("click", (e) => {
+          if (opened) {
+            e.stopImmediatePropagation();
+            opened = false;
           }
         }, true);
       }
@@ -864,8 +1106,9 @@
           list.append(row);
           if (viewing) continue; // look, don't touch
           if (timer) {
-            // hold: popup with pause / play, reset and delete
-            onLongPress(row, () => openEdit(stat));
+            // anywhere on the row: pause / resume, or open the stat page (see timerGesture)
+            row.classList.add("tappable");
+            timerGesture(row, stat);
             continue;
           }
           count.setAttribute("aria-label", `Add one to ${stat.name}`);
@@ -906,7 +1149,7 @@
         $("composer").hidden = true;
         $("star").hidden = false;
       }
-      // ★ = counted stat, clock = timed stat (starts counting now)
+      // # = counted stat, clock = timed stat (starts counting now)
       function create(kind) {
         const name = $("newbox").value.trim();
         if (!name) {
@@ -926,10 +1169,10 @@
       }
       $("makeCounter").onclick = () => create("counter");
       $("makeTimer").onclick = () => create("timer");
-      // tapping ★ / clock shouldn't steal focus (keeps the keyboard up on phones)
+      // tapping # / clock shouldn't steal focus (keeps the keyboard up on phones)
       for (const b of [$("makeCounter"), $("makeTimer")]) b.addEventListener("pointerdown", (e) => e.preventDefault());
       $("newbox").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") $("newbox").blur(); // just closes the keyboard; pick ★ or clock next
+        if (e.key === "Enter") $("newbox").blur(); // just closes the keyboard; pick # or clock next
         if (e.key === "Escape") closeNew();
       });
       // tapping anywhere else cancels
@@ -944,13 +1187,8 @@
         $("editCount").textContent = valueOf(editing);
         $("editCount").classList.toggle("timer", timer);
         $("editCount").classList.toggle("paused", timer && !editing.since);
-        $("editCount").setAttribute("aria-label", timer ? "Time so far" : "Add one");
+        $("editCount").setAttribute("aria-label", timer ? (editing.since ? "Pause" : "Resume") : "Add one");
         $("minusBtn").hidden = timer;
-        $("pauseBtn").hidden = !timer;
-        if (timer) {
-          $("pauseIcon").setAttribute("href", editing.since ? "#i-pause" : "#i-play");
-          $("pauseBtn").setAttribute("aria-label", editing.since ? "Pause" : "Resume");
-        }
       }
       function openEdit(stat) {
         editing = stat;
@@ -958,13 +1196,14 @@
         showEditValue();
         show($("editDialog"));
       }
-      $("pauseBtn").onclick = () => {
-        if (!editing || editing.kind !== "timer") return;
-        record(editing, editing.since ? "pause" : "resume");
+      // timed: pause / resume (not logged, only resets and deletes are)
+      function toggleTimer(stat) {
+        if (!stat || stat.kind !== "timer") return;
+        record(stat, stat.since ? "pause" : "resume");
         render();
-        showEditValue();
+        if (editing === stat) showEditValue();
         if (navigator.vibrate) navigator.vibrate(10);
-      };
+      }
       function change(delta) {
         if (!editing || editing.kind === "timer") return;
         if (delta > 0) record(editing, "add");
@@ -974,41 +1213,55 @@
         $("editCount").textContent = editing.count;
         if (navigator.vibrate) navigator.vibrate(10);
       }
-      $("editCount").onclick = () => change(1);
+      // counted: tap adds. timed: tap or double tap (the pause setting) pauses / resumes
+      let lastTimeTap = 0;
+      $("editCount").onclick = () => {
+        if (!editing) return;
+        if (editing.kind !== "timer") return change(1);
+        // "off" only turns off tapping in the list; here a tap still pauses
+        if (settings.timerPause !== "double") return toggleTimer(editing);
+        const now = Date.now();
+        if (now - lastTimeTap < DOUBLE_TAP_MS) {
+          lastTimeTap = 0;
+          toggleTimer(editing);
+        } else {
+          lastTimeTap = now;
+        }
+      };
       $("minusBtn").onclick = () => change(-1);
 
-      // 0 asks: reset, delete or cancel; reset and delete then ask yes / no
-      let pending = null;
-      $("zeroBtn").onclick = () => {
-        pending = null;
-        $("choiceView").hidden = false;
-        $("confirmView").hidden = true;
+      // the yes / no page (reset, delete, replacing stats on import). no onYes = just a message with a back button
+      let onYes = null;
+      function ask(text, yes = null) {
+        onYes = yes;
+        $("confirmText").textContent = text;
+        $("yesBtn").hidden = !yes;
+        $("noIcon").setAttribute("href", yes ? "#i-down" : "#i-exit");
         show($("zeroDialog"));
-      };
-      function ask(action) {
-        if (!editing) return;
-        pending = action;
-        $("confirmText").textContent = `${action} "${editing.name}"?`;
-        $("choiceView").hidden = true;
-        $("confirmView").hidden = false;
-        document.activeElement.blur();
       }
-      $("resetBtn").onclick = () => ask("reset");
-      $("deleteBtn").onclick = () => ask("delete");
-      $("cancelBtn").onclick = () => $("zeroDialog").close();
       $("noBtn").onclick = () => $("zeroDialog").close();
       $("yesBtn").onclick = () => {
-        if (editing && pending === "reset") {
-          record(editing, "reset");
+        const yes = onYes;
+        $("zeroDialog").close();
+        if (yes) yes();
+      };
+      $("resetBtn").onclick = () => {
+        const stat = editing;
+        if (!stat) return;
+        ask(`reset "${stat.name}"?`, () => {
+          record(stat, "reset");
           render();
-          showEditValue();
-          $("zeroDialog").close();
-        } else if (editing && pending === "delete") {
-          record(editing, "delete");
+          if (editing === stat) showEditValue();
+        });
+      };
+      $("deleteBtn").onclick = () => {
+        const stat = editing;
+        if (!stat) return;
+        ask(`delete "${stat.name}"?`, () => {
+          record(stat, "delete");
           render();
-          $("zeroDialog").close();
           $("editDialog").close();
-        }
+        });
       };
       // full screen, so "outside" is any empty space: anything that isn't a button goes back
       $("editDialog").addEventListener("click", (e) => {
@@ -1079,14 +1332,6 @@
           el.classList.add("bump");
         };
         const set = (id, n) => { $(id).textContent = n; bump($(id)); };
-        const flash = (icon, red) => {
-          const f = $("dFlash");
-          $("dFlashIcon").setAttribute("href", icon);
-          f.classList.toggle("danger", red);
-          f.classList.remove("go");
-          void f.offsetWidth;
-          f.classList.add("go");
-        };
         const poof = (el) => {
           const a = demo.getBoundingClientRect();
           const b = el.getBoundingClientRect();
@@ -1097,11 +1342,11 @@
             const angle = (i / 8) * Math.PI * 2;
             const s = document.createElement("span");
             s.className = "d-line";
-            s.style.left = `${cx + Math.cos(angle) * 22}px`;
-            s.style.top = `${cy + Math.sin(angle) * 16}px`;
+            s.style.left = `${cx + Math.cos(angle) * 18}px`;
+            s.style.top = `${cy + Math.sin(angle) * 12}px`;
             s.style.setProperty("--a", `${angle + Math.PI / 2}rad`); // point outward
-            s.style.setProperty("--dx", `${Math.cos(angle) * 18}px`);
-            s.style.setProperty("--dy", `${Math.sin(angle) * 18}px`);
+            s.style.setProperty("--dx", `${Math.cos(angle) * 11}px`);
+            s.style.setProperty("--dy", `${Math.sin(angle) * 11}px`);
             demo.append(s);
             setTimeout(() => s.remove(), 500);
           }
@@ -1127,7 +1372,7 @@
           await wait(300);
           el.classList.remove("swell");
         };
-        // shared steps: open the name field, type, then tap ★ or the clock
+        // shared steps: open the name field, type, then tap # or the clock
         const addStat = async (kindEl) => {
           await moveTo($("dStar"));
           await tap();
@@ -1156,33 +1401,34 @@
           await wait(700);
         };
         const resetAndDelete = async (zero) => {
-          // X → reset: the value swells and lands on zero
-          await moveTo($("dX"));
+          // reset → yes: the value swells and lands on zero
+          $("dAsk").textContent = `reset "demo"?`;
+          await moveTo($("dReset"));
           await tap();
           $("dZero").classList.add("on");
           await wait(500);
-          await moveTo($("dReset"));
+          await moveTo($("dYes"));
           await tap();
           $("dZero").classList.remove("on");
           await wait(150);
           await swell("dBig", zero);
           await wait(800);
-          // X → delete: red flash, popup closes, the stat goes poof
-          await moveTo($("dX"));
+          // delete → yes: both pages close together (like the real app), back on the list
+          // the stat vanishes in a burst of small straight sparks
+          $("dAsk").textContent = `delete "demo"?`;
+          await moveTo($("dTrash"));
           await tap();
           $("dZero").classList.add("on");
           await wait(500);
-          await moveTo($("dTrash"));
+          await moveTo($("dYes"));
           await tap();
           tRunning = false;
-          $("dZero").classList.remove("on");
-          flash("#i-trash", true);
-          await wait(350);
-          $("dPop").classList.remove("on");
           finger.classList.remove("on");
-          await wait(300);
+          $("dZero").classList.remove("on");
+          $("dPop").classList.remove("on");
+          await wait(220); // the pages fade away
           poof($("dRow"));
-          await wait(600);
+          await wait(700);
           $("dRow").hidden = true;
           $("dRow").classList.remove("poof");
         };
@@ -1191,8 +1437,6 @@
           $("dCount").classList.toggle("timer", on);
           $("dBig").classList.toggle("timer", on);
           $("dMinus").hidden = on;
-          $("dPause").hidden = !on;
-          $("dPauseIcon").setAttribute("href", "#i-pause");
           for (const id of ["dCount", "dBig"]) $(id).classList.remove("paused");
         };
         const showTime = (t) => {
@@ -1206,7 +1450,6 @@
             demo.classList.remove("fade");
             $("dRow").hidden = true;
             $("dRow").classList.remove("poof");
-            $("dFlash").classList.remove("go");
             $("dBig").classList.remove("swell");
             $("dBox").hidden = true;
             $("dStar").hidden = false;
@@ -1253,19 +1496,17 @@
             finger.classList.remove("on");
             await wait(2600);
 
-            // hold to open: still ticking. pause: time stops and greys out. play: ticks on
+            // hold to open: still ticking. tap the time: it stops and greys out. tap again: ticks on
             await hold();
             await wait(900);
-            await moveTo($("dPause"));
+            await moveTo($("dBig"));
             await tap();
             tRunning = false;
-            $("dPauseIcon").setAttribute("href", "#i-play");
             $("dCount").classList.add("paused");
             $("dBig").classList.add("paused");
             await wait(2200);
             await tap();
             tRunning = true;
-            $("dPauseIcon").setAttribute("href", "#i-pause");
             $("dCount").classList.remove("paused");
             $("dBig").classList.remove("paused");
             await wait(2100);
@@ -1338,7 +1579,7 @@
         // only wipe once the file is actually out (not if the share sheet was cancelled)
         if (!(await exportBackup())) return;
         try {
-          for (const k of [KEY, OLD_KEY, SEEN_KEY, SETTINGS_KEY, OLD_SETTINGS_KEY]) localStorage.removeItem(k);
+          for (const k of [KEY, OLD_KEY, SEEN_KEY, SETTINGS_KEY, OLD_SETTINGS_KEY, "stats.welcomed"]) localStorage.removeItem(k);
         } catch {}
         setTimeout(() => location.reload(), 1000); // back to a fresh first-visit state, after the download has started
       };
@@ -1423,13 +1664,16 @@
             return;
           }
           const shown = incoming.filter((s) => !s.deleted).length;
-          if (visible().length && !confirm(`Replace your current stats with ${shown} stat(s) from the file?`)) return;
-          stats = incoming;
-          save();
-          render();
-          markSeen();
+          const load = () => {
+            stats = incoming;
+            save();
+            render();
+            markSeen();
+          };
+          if (visible().length) ask(`replace your current stats with ${shown} stat(s) from the file?`, load);
+          else load();
         } catch {
-          alert("That file doesn't look like a stats backup.");
+          ask("that file doesn't look like a stats backup.");
         }
       };
 
@@ -1442,17 +1686,47 @@
         applySettings(settings);
         renderSettings();
       }
-      function renderSettings() {
-        const fonts = $("fontList");
-        fonts.innerHTML = "";
-        for (const [key, f] of Object.entries(FONTS)) {
-          const b = document.createElement("button");
-          b.textContent = f.label;
-          b.style.fontFamily = f.css;
-          b.classList.toggle("on", key === settings.font);
-          b.onclick = () => { settings.font = key; saveSettings(); };
-          fonts.append(b);
+      const holdLabel = (ms) => `${(ms / 1000).toFixed(1)}s`;
+      // font list: one button per font, made once and only ever reordered (chosen font first)
+      const fontBtns = {};
+      for (const [key, f] of Object.entries(FONTS)) {
+        const b = document.createElement("button");
+        b.textContent = f.label;
+        b.style.fontFamily = f.css;
+        b.setAttribute("role", "option");
+        b.onclick = () => {
+          const s = $("fontSetting");
+          // the top line (the chosen font) opens / closes the list
+          if (key === settings.font) {
+            s.classList.toggle("open");
+            return;
+          }
+          // another font: it slides up to the top while the list folds away
+          settings.font = key;
+          saveSettings();
+          orderFonts(true);
+          s.classList.remove("open");
+        };
+        fontBtns[key] = b;
+      }
+      $("fontList").style.setProperty("--n", Object.keys(FONTS).length);
+      // chosen font first, the rest in their usual order. animate: each button glides from
+      // where it was to its new place (measure, reorder, then play back the difference)
+      function orderFonts(animate) {
+        const list = $("fontList");
+        const before = new Map(Object.values(fontBtns).map((b) => [b, b.getBoundingClientRect().top]));
+        const order = [settings.font, ...Object.keys(FONTS).filter((k) => k !== settings.font)];
+        for (const k of order) {
+          list.append(fontBtns[k]);
+          fontBtns[k].setAttribute("aria-selected", k === settings.font);
         }
+        if (!animate) return;
+        for (const [b, top] of before) {
+          const dy = top - b.getBoundingClientRect().top;
+          if (dy) b.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 250, easing: "ease" });
+        }
+      }
+      function renderSettings() {
         const themes = $("themeList");
         themes.innerHTML = "";
         for (const [key, t] of Object.entries(THEMES)) {
@@ -1461,16 +1735,75 @@
           b.setAttribute("aria-label", key);
           b.title = key;
           b.classList.toggle("on", key === settings.theme);
-          b.onclick = () => { settings.theme = key; saveSettings(); };
+          b.onclick = () => { settings.theme = key; saveSettings(); }; // stays open to try others
           themes.append(b);
         }
+        $("holdNum").textContent = holdLabel(settings.hold);
+        // 2☝ chosen: the seconds are locked
+        $("holdStepper").classList.toggle("off", settings.timerOpen === "double");
+        for (const b of document.querySelectorAll("[data-mode]")) {
+          const [key, value] = b.dataset.mode.split(":");
+          b.classList.toggle("on", settings[key] === value);
+        }
+        $("themeVal").innerHTML = `<span class="dot" style="background:${THEMES[settings.theme].bg}"></span>${settings.theme}`;
+      }
+      // timer gestures: double tap can only do one job, so picking it for one moves the other off it.
+      // stays open so both can be set in one go
+      for (const b of document.querySelectorAll("[data-mode]")) {
+        const [key, value] = b.dataset.mode.split(":");
+        b.onclick = () => {
+          settings[key] = value;
+          if (value === "double") {
+            if (key === "timerOpen") {
+              if (settings.timerPause === "double") settings.timerPause = "tap";
+            } else {
+              settings.timerOpen = "hold";
+            }
+          }
+          saveSettings();
+        };
+      }
+      // − / +: 0.1s a tap; keep holding to run through the values
+      for (const b of document.querySelectorAll("[data-step]")) {
+        const [key, dir] = b.dataset.step.split(":");
+        let repeat = null;
+        const step = () => {
+          const next = Math.min(HOLD_MAX, Math.max(HOLD_MIN, settings[key] + Number(dir) * HOLD_STEP));
+          if (next === settings[key]) return;
+          settings[key] = next;
+          saveSettings();
+        };
+        const stop = () => { clearTimeout(repeat); clearInterval(repeat); };
+        b.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          step();
+          stop();
+          repeat = setTimeout(() => (repeat = setInterval(step, 70)), 400);
+        });
+        for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+        b.addEventListener("click", (e) => { if (e.detail === 0) step(); }); // keyboard
+        b.addEventListener("contextmenu", (e) => e.preventDefault());
+      }
+      // each line opens / closes on its own; any number can be open at once
+      function closeDropdowns() {
+        for (const s of document.querySelectorAll(".setting")) s.classList.remove("open");
+      }
+      for (const head of document.querySelectorAll(".set-head")) {
+        head.onclick = () => head.parentElement.classList.toggle("open");
       }
       $("settingsBtn").onclick = () => {
         $("menuDialog").close();
+        closeDropdowns();
+        orderFonts(false);
         renderSettings();
         show($("settingsDialog"));
       };
-      $("settingsDone").onclick = () => $("settingsDialog").close();
+      // the exit button is the only way out, and it goes back to the menu
+      $("settingsDone").onclick = () => {
+        $("settingsDialog").close();
+        show($("menuDialog"));
+      };
+      $("settingsDialog").addEventListener("cancel", (e) => e.preventDefault()); // no Esc / back gesture
 
       // ask the browser not to evict our data
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
@@ -1479,11 +1812,103 @@
         navigator.serviceWorker.register("sw.js").catch(() => {});
       }
 
+      // ── welcome page (first visit) ──
+      const WELCOME_KEY = "stats.welcomed";
+
+      // the Claude Code mascot in pixels: 18 × 5, each pixel twice as tall as wide (like terminal blocks)
+      (function drawClawd() {
+        const body = [
+          "...############...",
+          "...##.######.##...", // the gaps are the eyes
+          ".################.",
+          "...############...",
+        ];
+        const legsA = "....#.#....#.#....";
+        const legsB = "...#.#......#.#...";
+        const ns = "http://www.w3.org/2000/svg";
+        const g = (cls) => {
+          const el = document.createElementNS(ns, "g");
+          if (cls) el.setAttribute("class", cls);
+          $("clawd").append(el);
+          return el;
+        };
+        const px = (group, x, y) => {
+          const r = document.createElementNS(ns, "rect");
+          r.setAttribute("x", x);
+          r.setAttribute("y", y * 2);
+          r.setAttribute("width", 1);
+          r.setAttribute("height", 2);
+          group.append(r);
+        };
+        const row = (group, line, y) => [...line].forEach((c, x) => c === "#" && px(group, x, y));
+        const b = g();
+        body.forEach((line, y) => row(b, line, y));
+        row(g("legs-a"), legsA, 4);
+        row(g("legs-b"), legsB, 4);
+        const lids = g("lids"); // fill the eyes for a blink
+        px(lids, 5, 1);
+        px(lids, 12, 1);
+      })();
+
+      // iOS / Android is picked for them from the device (they can change it); the browser is always typed
+      function guessOs() {
+        const ua = navigator.userAgent;
+        if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "iOS";
+        return /Android/.test(ua) ? "Android" : "";
+      }
+      let welcomeOs = "";
+      // the search icon stays dim until both blanks are filled
+      function updateWelcome() {
+        for (const b of document.querySelectorAll("[data-os]")) b.classList.toggle("on", b.dataset.os === welcomeOs);
+        $("wSearch").classList.toggle("ready", !!(welcomeOs && $("wBrowser").value.trim()));
+      }
+      $("wBrowser").addEventListener("input", updateWelcome);
+      $("wBrowser").addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        $("wBrowser").blur();
+        $("wSearch").click();
+      });
+      for (const b of document.querySelectorAll("[data-os]")) {
+        b.onclick = () => {
+          welcomeOs = b.dataset.os;
+          updateWelcome();
+        };
+      }
+      // search: "how to add a web page to the home screen in <browser> on <os>". a blank missing → nothing (or the field)
+      $("wSearch").onclick = () => {
+        const browser = $("wBrowser").value.trim();
+        if (!browser) return $("wBrowser").focus();
+        if (!welcomeOs) return;
+        const q = `how to add a web page to the home screen in ${browser} on ${welcomeOs}`;
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, "_blank", "noopener");
+      };
+      // the thumbs up is the only way on, and it's only shown once
+      $("welcomeDone").onclick = () => {
+        try {
+          localStorage.setItem(WELCOME_KEY, "1");
+        } catch {}
+        $("welcomeDialog").close();
+        updateBar(); // off-white again for the ? / import screen
+      };
+      $("welcomeDialog").addEventListener("cancel", (e) => e.preventDefault());
+
       if (isNew()) {
         $("star").hidden = true;
         $("intro").hidden = false;
       }
       render();
+
+      // first visit: the welcome page comes first, then the ? / import screen behind it
+      let welcomed = true;
+      try {
+        welcomed = !!localStorage.getItem(WELCOME_KEY);
+      } catch {}
+      if (isNew() && !welcomed) {
+        welcomeOs = guessOs();
+        updateWelcome();
+        show($("welcomeDialog"));
+        updateBar(); // dark status bar while the (dark) welcome page is up
+      }
     </script>
   </body>
 </html>
