@@ -38,7 +38,8 @@ function normalize(s) {
     )
     .filter(Boolean);
   const created = s.created ? String(s.created) : (all[0] && all[0].time) || new Date().toISOString();
-  const log = all.filter((e) => e.action === "reset" || e.action === "delete");
+  // kept: resets, deletes and restores (taps and pauses aren't logged)
+  const log = all.filter((e) => e.action === "reset" || e.action === "delete" || e.action === "restore");
   const stat = { id: s.id || String(Math.random()), name: String(s.name || "untitled"), kind: timer ? "timer" : "counter", created };
   if (timer) {
     stat.elapsed = Math.max(0, Number(s.elapsed) || 0);
@@ -134,8 +135,8 @@ function markSeen() {
   updateBar();
 }
 
-// calls onLong after holding for the hold time in settings (0.5s by default); swallows the click that follows
-function onLongPress(el, onLong) {
+// calls onLong after a hold: the hold time in settings (0.5s by default), or a fixed ms if given; swallows the click that follows
+function onLongPress(el, onLong, ms) {
   let timer = null;
   let fired = false;
   el.addEventListener("pointerdown", () => {
@@ -144,7 +145,7 @@ function onLongPress(el, onLong) {
       fired = true;
       if (navigator.vibrate) navigator.vibrate(20);
       onLong();
-    }, settings.hold);
+    }, ms ?? settings.hold);
   });
   for (const ev of ["pointerup", "pointerleave", "pointercancel"]) {
     el.addEventListener(ev, () => clearTimeout(timer));
@@ -236,7 +237,10 @@ setInterval(() => {
 function render() {
   const list = $("list");
   list.innerHTML = "";
-  const shown = viewing ? viewing.filter((s) => !s.deleted) : visible();
+  // your live stats, then (if "deleted" is on in settings → info) the deleted ones at the bottom
+  const shown = viewing
+    ? viewing.filter((s) => !s.deleted)
+    : [...visible(), ...(settings.showDeleted ? stats.filter((s) => s.deleted) : [])];
   document.documentElement.classList.toggle("empty", shown.length === 0);
   document.body.classList.toggle("viewing", !!viewing);
   $("viewLabel").hidden = !viewing;
@@ -257,17 +261,25 @@ function render() {
     name.className = "name";
     name.textContent = stat.name;
     const timer = stat.kind === "timer";
-    const count = document.createElement(viewing || timer ? "span" : "button");
+    const deleted = !viewing && !!stat.deleted;
+    const count = document.createElement(viewing || timer || deleted ? "span" : "button");
     count.className = "count";
     count.textContent = valueOf(stat);
     if (timer) {
       count.classList.add("timer");
       count.classList.toggle("paused", !stat.since);
-      timerEls.push([count, stat]);
+      if (!deleted) timerEls.push([count, stat]);
     }
     row.append(name, count);
     list.append(row);
     if (viewing) continue; // look, don't touch
+    if (deleted) {
+      // greyed, a trash can by the name; tap to open it (restore or delete for good)
+      row.classList.add("deleted", "tappable");
+      name.insertAdjacentHTML("beforeend", ' <svg class="ic del-ic" aria-label="deleted"><use href="#i-trash" /></svg>');
+      row.addEventListener("click", () => openEdit(stat));
+      continue;
+    }
     if (timer) {
       // anywhere on the row: pause / resume, or open the stat page (see timerGesture)
       row.classList.add("tappable");
@@ -305,7 +317,9 @@ $("star").addEventListener("click", () => {
   $("composer").hidden = false;
   $("newbox").focus();
 });
-onLongPress($("star"), () => show($("menuDialog")));
+// the + always opens the menu after 0.4s, whatever the hold setting (that one is for stats)
+const MENU_HOLD = 400;
+onLongPress($("star"), () => show($("menuDialog")), MENU_HOLD);
 
 function closeNew() {
   $("newbox").value = "";
@@ -351,14 +365,77 @@ function showEditValue() {
   $("editCount").classList.toggle("timer", timer);
   $("editCount").classList.toggle("paused", timer && !editing.since);
   $("editCount").setAttribute("aria-label", timer ? (editing.since ? "Pause" : "Resume") : "Add one");
-  $("minusBtn").hidden = timer;
+  // a deleted stat's page: just look, restore it, or delete it for good
+  const gone = !!editing.deleted;
+  $("editDialog").classList.toggle("is-deleted", gone);
+  $("resetBtn").hidden = gone;
+  $("deleteBtn").hidden = gone;
+  $("minusBtn").hidden = timer || gone;
+  $("restoreBtn").hidden = !gone;
+  $("purgeBtn").hidden = !gone;
+  showEditMeta();
+}
+// "2026-11-18 14:05 UTC": 24h, always UTC, so it reads the same wherever you are
+function fmtUtc(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+// the greyed lines under the buttons: when it was made, how often it's been reset (each optional in settings)
+function showEditMeta() {
+  const resets = editing.log.filter((e) => e.action === "reset").length;
+  $("editCreated").textContent = `created ${fmtUtc(editing.created)}`;
+  $("editCreated").hidden = !settings.showCreated;
+  $("editResets").textContent = resets === 0 ? "never reset" : `reset ${resets} time${resets === 1 ? "" : "s"}`;
+  $("editResets").hidden = !settings.showResets;
+  // deleted stats always say when they went
+  $("editDeleted").textContent = editing.deleted ? `deleted ${fmtUtc(editing.deleted)}` : "";
+  $("editDeleted").hidden = !editing.deleted;
 }
 function openEdit(stat) {
   editing = stat;
   $("editName").textContent = stat.name;
+  $("editName").hidden = false;
+  $("editNameInput").hidden = true;
   showEditValue();
   show($("editDialog"));
 }
+
+// rename: tap the name and it becomes a text field. Enter / tapping away saves, Esc cancels,
+// an empty name keeps the old one. the id never changes, so its history and backups still line up
+$("editName").onclick = () => {
+  if (!editing || editing.deleted) return; // restore it first to rename it
+  const input = $("editNameInput");
+  input.value = editing.name;
+  $("editName").hidden = true;
+  input.hidden = false;
+  input.focus();
+  input.select();
+};
+function finishRename(keep) {
+  const input = $("editNameInput");
+  if (input.hidden) return;
+  const name = input.value.trim();
+  if (keep && editing && name && name !== editing.name) {
+    editing.name = name;
+    save();
+    render(); // the list behind updates too
+    $("editName").textContent = name;
+  }
+  input.hidden = true;
+  $("editName").hidden = false;
+  renameEnded = Date.now();
+}
+let renameEnded = 0;
+$("editNameInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") finishRename(true);
+  if (e.key === "Escape") {
+    e.preventDefault(); // just cancel the rename, don't close the stat page
+    finishRename(false);
+  }
+});
+$("editNameInput").addEventListener("blur", () => finishRename(true));
 // timed: pause / resume (not logged, only resets and deletes are)
 function toggleTimer(stat) {
   if (!stat || stat.kind !== "timer") return;
@@ -379,7 +456,7 @@ function change(delta) {
 // counted: tap adds. timed: tap or double tap (the pause setting) pauses / resumes
 let lastTimeTap = 0;
 $("editCount").onclick = () => {
-  if (!editing) return;
+  if (!editing || editing.deleted) return; // a deleted stat is look-only
   if (editing.kind !== "timer") return change(1);
   // "off" only turns off tapping in the list; here a tap still pauses
   if (settings.timerPause !== "double") return toggleTimer(editing);
@@ -426,11 +503,44 @@ $("deleteBtn").onclick = () => {
     $("editDialog").close();
   });
 };
-// full screen, so "outside" is any empty space: anything that isn't a button goes back
+// deleted stat → restore (asks first): back in the list as it was (a timed stat stays paused), and the page turns live
+$("restoreBtn").onclick = () => {
+  const stat = editing;
+  if (!stat || !stat.deleted) return;
+  ask(`restore "${stat.name}"?`, () => {
+    delete stat.deleted;
+    const time = new Date().toISOString();
+    stat.log.push(stat.kind === "timer" ? { action: "restore", time, elapsed: stat.elapsed } : { action: "restore", time, count: stat.count });
+    save();
+    render();
+    if (editing === stat) showEditValue();
+    if (navigator.vibrate) navigator.vibrate(10);
+  });
+};
+// deleted stat → delete for good: gone from localStorage entirely, history and all
+$("purgeBtn").onclick = () => {
+  const stat = editing;
+  if (!stat || !stat.deleted) return;
+  ask(`permanently delete "${stat.name}"? this can't be undone.`, () => {
+    stats = stats.filter((s) => s !== stat);
+    save();
+    $("editDialog").close();
+    render();
+  });
+};
+// full screen, so "outside" is any empty space: anything that isn't a button (or the rename field) goes back.
+// mid-rename, the first tap on empty space just finishes the rename
 $("editDialog").addEventListener("click", (e) => {
-  if (!e.target.closest("button")) $("editDialog").close();
+  if (e.target.closest("button, input")) return;
+  // the tap that ended a rename (the field loses focus first, then this click lands) stays on the page
+  if (!$("editNameInput").hidden) return finishRename(true);
+  if (Date.now() - renameEnded < 500) return;
+  $("editDialog").close();
 });
+// Esc / back gesture mid-rename: keep the new name (done here, before the page goes, not left to the close event)
+$("editDialog").addEventListener("cancel", () => finishRename(true));
 $("editDialog").onclose = () => {
+  finishRename(true);
   editing = null;
   render();
 };
@@ -454,7 +564,7 @@ $("helpBtn").onclick = () => {
 $("helpDone").onclick = () => $("helpDialog").close();
 $("helpDialog").addEventListener("close", markSeen);
 
-// export: just export, or export & clear (asks yes / no first)
+// export: just export, export read-only, or full app reset (asks yes / no first)
 $("exportBtn").onclick = () => {
   $("menuDialog").close();
   $("exportChoices").hidden = false;
@@ -501,14 +611,19 @@ function sealOf(file) {
   const body = SEAL_KEY + JSON.stringify([file.readOnly === true, file.exported, file.stats]);
   return cyrb53(body, 1) + cyrb53(body, 2);
 }
-$("exportYes").onclick = async () => {
+// full app reset: wipes everything this app keeps in localStorage (stats, settings, first-visit flags),
+// then starts over as a first visit. only this app's keys: the rest of the site shares localStorage
+$("exportYes").onclick = () => {
   $("exportDialog").close();
-  // only wipe once the file is actually out (not if the share sheet was cancelled)
-  if (!(await exportBackup())) return;
   try {
-    for (const k of [KEY, OLD_KEY, SEEN_KEY, SETTINGS_KEY, OLD_SETTINGS_KEY, "stats.welcomed"]) localStorage.removeItem(k);
+    const mine = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k.startsWith("stats.") || k.startsWith("tally.")) mine.push(k);
+    }
+    for (const k of mine) localStorage.removeItem(k);
   } catch {}
-  setTimeout(() => location.reload(), 1000); // back to a fresh first-visit state, after the download has started
+  location.reload();
 };
 
 // returns true once the file has been shared or downloaded
@@ -518,21 +633,21 @@ async function exportBackup(readOnly = false) {
     _readme: {
       about: readOnly
         ? "Read-only copy from the stats app. Importing it only lets you look at these stats."
-        : "Backup from the stats app. Import it from the menu (hold the star) to restore.",
+        : "Backup from the stats app. Import it from the menu (hold the +) to restore.",
       seal: "Fingerprint of this file. If anything below is edited, the app will only open it as read-only.",
       readOnly: "true = this file can only be viewed, never loaded as your own stats.",
       exported: "When this file was made.",
       stats: "Every stat, including deleted ones (kept so their history isn't lost).",
       id: "Unique id for the stat.",
       name: "What you're counting.",
-      kind: "counter = tap to count, timer = counts time on its own.",
+      kind: "counter = a counted stat (tap to count), timer = a timed stat (counts time on its own).",
       created: "When the stat was made (UTC).",
-      count: "Counters only: the current number.",
-      elapsed: "Timers only: milliseconds counted in earlier runs (the current run is on top of this).",
-      since: "Timers only: when the current run started (UTC), or null if paused.",
-      highest: "Counters: the highest the count has been. Timers: the longest it has run, in milliseconds.",
+      count: "Counted stats only: the current number.",
+      elapsed: "Timed stats only: milliseconds counted in earlier runs (the current run is on top of this).",
+      since: "Timed stats only: when the current run started (UTC), or null if paused.",
+      highest: "Counted stats: the highest the count has been. Timed stats: the longest it has run, in milliseconds.",
       deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
-      log: "Resets and deletes, oldest first. action = reset | delete, time = when it happened (UTC), count (counters) or elapsed (timers) = the value right after.",
+      log: "Resets, deletes and restores, oldest first. action = reset | delete | restore, time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
     },
     seal: "",
     readOnly,

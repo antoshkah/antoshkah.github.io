@@ -44,14 +44,18 @@
           return {
             theme: THEMES[l.theme] ? l.theme : "dark",
             font: FONTS[l.font] ? l.font : "writer",
-            hold: holdOk(l.hold, 500), // hold the star / a row to open things
+            hold: holdOk(l.hold, 500), // hold a stat to open it (the + is fixed at 0.4s, see MENU_HOLD in app.js)
             // timed stats: what opens the stat page, and what pauses. never both double tap
             timerOpen: l.timerOpen === "double" ? "double" : "hold",
             // "off" (the default) = no tapping in the list, pause on the stat page only
             timerPause: l.timerPause === "tap" ? "tap" : l.timerPause === "double" && l.timerOpen !== "double" ? "double" : "off",
+            // greyed info on the stat page: created date (on by default), reset count (off by default)
+            showCreated: l.showCreated !== false,
+            showResets: l.showResets === true,
+            showDeleted: l.showDeleted === true, // deleted stats listed at the bottom (off by default)
           };
         } catch {
-          return { theme: "dark", font: "writer", hold: 500, timerOpen: "hold", timerPause: "off" };
+          return { theme: "dark", font: "writer", hold: 500, timerOpen: "hold", timerPause: "off", showCreated: true, showResets: false, showDeleted: false };
         }
       }
 
@@ -152,7 +156,10 @@
       <!-- plus (add a stat): straight lines, square ends -->
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16" stroke-linecap="square" /></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
-      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L21 21" /></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.01" /></symbol>
+      <!-- restore: an undo arrow (different from reset's circle) -->
+      <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="square" stroke-linejoin="miter" /></symbol>
       <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
       <symbol id="i-colour" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
       <!-- the walkthrough's pointing glove, as an outline -->
@@ -167,12 +174,23 @@
     <!-- hold a row; counted: tap the big number to add, − to subtract; timed: tap the time to pause / resume.
          reset and delete ask yes / no first; tap any empty space to close -->
     <dialog id="editDialog">
-      <div id="editName"></div>
+      <!-- tap the name to rename it (it turns into a text field) -->
+      <button id="editName" aria-label="Rename"></button>
+      <input id="editNameInput" maxlength="80" enterkeyhint="done" autocomplete="off" aria-label="New name" hidden />
       <button id="editCount"></button>
       <div class="edit-row">
         <button id="resetBtn" aria-label="Reset"><svg class="ic"><use href="#i-reset" /></svg></button>
         <button id="deleteBtn" class="danger" aria-label="Delete"><svg class="ic"><use href="#i-trash" /></svg></button>
         <button id="minusBtn" aria-label="Subtract one">−</button>
+        <!-- only on a deleted stat's page -->
+        <button id="restoreBtn" aria-label="Restore" hidden><svg class="ic"><use href="#i-restore" /></svg></button>
+        <button id="purgeBtn" class="danger" aria-label="Delete permanently" hidden><svg class="ic"><use href="#i-trash" /></svg></button>
+      </div>
+      <!-- greyed info under the buttons; each line can be turned off in settings (info) -->
+      <div class="edit-meta">
+        <div id="editCreated"></div>
+        <div id="editResets"></div>
+        <div id="editDeleted" hidden></div>
       </div>
     </dialog>
 
@@ -204,16 +222,17 @@
         <button id="exportOnly" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
         <button id="exportView" class="pair labeled" aria-label="Export read-only">
           <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg>
-          <span class="sub">(read-only)</span>
+          <span class="sub">(read&#8209;only)</span>
         </button>
-        <button id="exportClear" class="danger pair" aria-label="Export and clear">
-          <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-trash" /></svg>
+        <button id="exportClear" class="danger labeled" aria-label="Full app reset">
+          <svg class="ic"><use href="#i-trash" /></svg>
+          <span class="sub">(full app reset)</span>
         </button>
         <button id="exportCancel" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
-      <!-- after picking export & clear -->
+      <!-- after picking full app reset -->
       <div class="choices" id="exportConfirm" hidden>
-        <div class="confirm-text">export, then delete all <b>stats</b> and <b>settings</b> from localStorage?</div>
+        <div class="confirm-text">delete all <b>stats</b> and <b>settings</b> from localStorage? this can't be undone.</div>
         <div class="icons">
           <button id="exportYes" class="danger" aria-label="Yes"><svg class="ic"><use href="#i-up" /></svg></button>
           <button id="exportNo" class="muted" aria-label="No"><svg class="ic"><use href="#i-down" /></svg></button>
@@ -226,33 +245,42 @@
          only the exit button leaves (back to the menu) -->
     <dialog id="settingsDialog" class="page">
      <div class="settings">
+      <!-- tap a line's icon (not its words): a one-line bubble saying what it's for (data-tip) -->
+      <div class="set-tip" id="setTip" role="tooltip"></div>
       <!-- font: the chosen font is always the top line, the rest listed under it.
            picking one slides it up to the top and the list folds away -->
       <div class="setting" id="fontSetting">
-        <span class="set-ic font-ic">Aa</span>
+        <span class="set-ic font-ic" role="button" aria-label="What is this?" data-tip="the typeface used.">Aa</span>
         <svg class="ic chev font-chev"><use href="#i-chev" /></svg>
         <div class="font-list" id="fontList" role="listbox" aria-label="Font"></div>
       </div>
       <div class="setting">
-        <button class="set-head" aria-label="Colours"><svg class="ic set-ic"><use href="#i-colour" /></svg><span class="set-val" id="themeVal"></span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head" aria-label="Colours"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="the colour theme used."><use href="#i-colour" /></svg><span class="set-val" id="themeVal"></span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner"><div class="swatches" id="themeList"></div></div></div>
       </div>
       <!-- hold: how long a hold is (star and stats), and whether timers open with a hold or a double tap.
            double tap can only do one job, so picking it here or under pause moves the other off it -->
       <div class="setting">
-        <button class="set-head"><svg class="ic set-ic"><use href="#i-press" /></svg><span class="set-val">hold</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head"><svg class="ic set-ic" aria-hidden="true"><use href="#i-press" /></svg><span class="set-val">hold</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner">
-          <div class="stepper" id="holdStepper"><button data-step="hold:-1" aria-label="Shorter">−</button><span id="holdNum"></span><button data-step="hold:1" aria-label="Longer">+</button></div>
-          <!-- timers open with: H☝ = hold, 2☝ = double tap -->
-          <div class="modes">
-            <button data-mode="timerOpen:hold" aria-label="Hold to open timers"><span>H</span><svg class="finger"><use href="#i-finger" /></svg></button>
-            <button data-mode="timerOpen:double" aria-label="Double tap to open timers"><span>2</span><svg class="finger"><use href="#i-finger" /></svg></button>
+          <!-- #: how long to hold a stat to open it (always adjustable) -->
+          <div class="hold-row">
+            <span class="hold-ic hash" role="button" aria-label="What is this?" data-tip="how long you hold a stat (counted or timed) to open its page.">#</span>
+            <div class="stepper" id="holdStepper"><button data-step="hold:-1" aria-label="Shorter">−</button><span id="holdNum"></span><button data-step="hold:1" aria-label="Longer">+</button></div>
+          </div>
+          <!-- clock: timers open with H☝ = a hold (the time above), or 2☝ = a double tap -->
+          <div class="hold-row">
+            <svg class="ic hold-ic" role="button" aria-label="What is this?" data-tip="how timed stats open: a hold (the time above) or a double tap."><use href="#i-clock" /></svg>
+            <div class="modes">
+              <button data-mode="timerOpen:hold" aria-label="Hold to open timed stats"><span>H</span><svg class="finger"><use href="#i-finger" /></svg></button>
+              <button data-mode="timerOpen:double" aria-label="Double tap to open timed stats"><span>2</span><svg class="finger"><use href="#i-finger" /></svg></button>
+            </div>
           </div>
         </div></div>
       </div>
       <!-- pause: how timers are paused in the list. 0☝ = off (only on the stat page), 1☝ = tap, 2☝ = double tap -->
       <div class="setting">
-        <button class="set-head"><svg class="ic set-ic"><use href="#i-pause" /></svg><span class="set-val">pause</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="how you pause a timed stat straight from the list."><use href="#i-pause" /></svg><span class="set-val">pause</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner">
           <div class="modes">
             <button data-mode="timerPause:off" aria-label="No tapping, pause on the stat page only"><span>0</span><svg class="finger"><use href="#i-finger" /></svg></button>
@@ -261,28 +289,89 @@
           </div>
         </div></div>
       </div>
+      <!-- info: which greyed lines show on the stat page. each turns on / off on its own -->
+      <div class="setting">
+        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="which extra details show on a stat's page, and whether deleted stats are listed."><use href="#i-info" /></svg><span class="set-val">info</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <div class="set-body"><div class="set-inner">
+          <!-- checkboxes, one per line, each on / off by itself -->
+          <div class="checks">
+            <button data-toggle="showCreated" role="checkbox"><span class="box"><svg><use href="#i-check" /></svg></span>creation time</button>
+            <button data-toggle="showResets" role="checkbox"><span class="box"><svg><use href="#i-check" /></svg></span>reset count</button>
+            <button data-toggle="showDeleted" role="checkbox"><span class="box"><svg><use href="#i-check" /></svg></span>view deleted</button>
+          </div>
+        </div></div>
+      </div>
       <button class="done" id="settingsDone" aria-label="Done"><svg class="ic"><use href="#i-exit" /></svg></button>
      </div>
     </dialog>
 
     <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used,
-         and a search for adding it to the home screen with the blanks filled in -->
+         and a "how & why?" button to the page below -->
     <dialog id="welcomeDialog" class="page">
       <!-- every piece is a direct child of .welcome, so one gap spaces them all equally -->
       <div class="welcome">
         <svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges" aria-label="powered by Claude Code"></svg>
         <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b></span>
         <p class="warn"><b>heads up:</b> <i>stats</i> is made to be used as a web page on your phone, added to your home screen.</p>
-        <!-- iOS / Android, the browser, then search (googles how to add it to the home screen) next to the thumbs up -->
-        <div class="os">
-          <button data-os="iOS">iOS</button>
-          <button data-os="Android">Android</button>
+        <button class="how-btn" id="howBtn">how &amp; why?</button>
+      </div>
+    </dialog>
+
+    <!-- welcome → how & why?: adding it to the home screen (Safari on iOS, Chrome on Android), then why
+         it matters (localStorage). the thumbs up at the bottom moves on to the ? / import screen -->
+    <dialog id="howDialog" class="page">
+      <div class="how">
+        <h2>how?</h2>
+        <!-- drop-down guides: tap a heading to open it; opening one closes the other -->
+        <div class="acc">
+          <div class="acc-item">
+            <button class="acc-head">iOS (Safari)<svg class="ic chev"><use href="#i-chev" /></svg></button>
+            <div class="acc-body"><div class="acc-inner">
+              <ol>
+                <li>Open this page in <b>Safari</b>.</li>
+                <li>Tap the <b>Share</b> button (a square with an arrow pointing up). If you can't see it, tap <b>⋯</b> first.</li>
+                <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+                <li>If there's an <b>Open as Web App</b> switch, leave it on.</li>
+                <li>Tap <b>Add</b>.</li>
+                <li>Open <i>stats</i> from the new icon on your home screen.</li>
+              </ol>
+            </div></div>
+          </div>
+          <div class="acc-item">
+            <button class="acc-head">Android (Chrome)<svg class="ic chev"><use href="#i-chev" /></svg></button>
+            <div class="acc-body"><div class="acc-inner">
+              <ol>
+                <li>Open this page in <b>Chrome</b>.</li>
+                <li>Tap the <b>⋮</b> menu (top right).</li>
+                <li>Tap <b>Add to home screen</b> (it may say <b>Install app</b>).</li>
+                <li>Tap <b>Install</b> or <b>Add</b>, and confirm.</li>
+                <li>Open <i>stats</i> from the new icon on your home screen.</li>
+              </ol>
+            </div></div>
+          </div>
         </div>
-        <input id="wBrowser" class="w-browser" placeholder="[browser: safari, chrome, ...]" maxlength="40" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Your browser" />
-        <div class="w-actions">
-          <button class="search" id="wSearch" aria-label="Search Google for how to add this to your home screen"><svg class="ic"><use href="#i-search" /></svg></button>
-          <button class="done" id="welcomeDone" aria-label="Continue"><svg class="ic"><use href="#i-up" /></svg></button>
+
+        <h2>why?</h2>
+        <p><i>stats</i> keeps everything in <b>localStorage</b>: a small storage space your browser gives each website/webpage. Nothing is sent anywhere, and there's no account. That also means there's no copy anywhere else: you can <b>export</b> now and then to keep a backup.</p>
+        <p>localStorage belongs to one browser on one device: the same page opened in a different browser starts empty. Clearing your browser's history or website data deletes it.</p>
+        <div class="acc">
+          <div class="acc-item">
+            <button class="acc-head">iOS<svg class="ic chev"><use href="#i-chev" /></svg></button>
+            <div class="acc-body"><div class="acc-inner">
+              <p>The home screen app gets <b>its own storage, separate from Safari</b>. Stats you add in a Safari tab won't be in the app, and the other way round.</p>
+              <p>In a normal Safari tab, Safari can wipe a site's storage if you haven't visited it for a while. The home screen app is kept as long as you use it. Removing the app's icon delete its stats, so export first.</p>
+            </div></div>
+          </div>
+          <div class="acc-item">
+            <button class="acc-head">Android<svg class="ic chev"><use href="#i-chev" /></svg></button>
+            <div class="acc-body"><div class="acc-inner">
+              <p>The home screen app <b>shares storage with Chrome</b> for this site, so it's the same stats whether you open the icon or the page in Chrome.</p>
+              <p>Clearing Chrome's data for this site (or all of Chrome's data) deletes your stats. When your phone runs low on space, Chrome can clear site storage too: export regularly.</p>
+            </div></div>
+          </div>
         </div>
+
+        <button class="done" id="howDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
       </div>
     </dialog>
 

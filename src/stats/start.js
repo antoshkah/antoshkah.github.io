@@ -19,8 +19,6 @@ try {
   welcomed = !!localStorage.getItem(WELCOME_KEY);
 } catch {}
 if (isNew() && !welcomed) {
-  welcomeOs = guessOs();
-  updateWelcome();
   show($("welcomeDialog"));
   updateBar(); // dark status bar while the (dark) welcome page is up
 }

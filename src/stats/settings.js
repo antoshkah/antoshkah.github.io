@@ -63,11 +63,13 @@ function renderSettings() {
     themes.append(b);
   }
   $("holdNum").textContent = holdLabel(settings.hold);
-  // 2☝ chosen: the seconds are locked
-  $("holdStepper").classList.toggle("off", settings.timerOpen === "double");
   for (const b of document.querySelectorAll("[data-mode]")) {
     const [key, value] = b.dataset.mode.split(":");
     b.classList.toggle("on", settings[key] === value);
+  }
+  for (const b of document.querySelectorAll("[data-toggle]")) {
+    b.classList.toggle("on", settings[b.dataset.toggle]);
+    b.setAttribute("aria-checked", settings[b.dataset.toggle]);
   }
   $("themeVal").innerHTML = `<span class="dot" style="background:${THEMES[settings.theme].bg}"></span>${settings.theme}`;
 }
@@ -85,6 +87,14 @@ for (const b of document.querySelectorAll("[data-mode]")) {
       }
     }
     saveSettings();
+  };
+}
+// info: each line on the stat page switches on / off by itself
+for (const b of document.querySelectorAll("[data-toggle]")) {
+  b.onclick = () => {
+    settings[b.dataset.toggle] = !settings[b.dataset.toggle];
+    saveSettings();
+    render(); // "deleted" changes the list itself
   };
 }
 // − / +: 0.1s a tap; keep holding to run through the values
@@ -124,7 +134,41 @@ $("settingsBtn").onclick = () => {
 };
 // the exit button is the only way out, and it goes back to the menu
 $("settingsDone").onclick = () => {
+  hideTip();
   $("settingsDialog").close();
   show($("menuDialog"));
 };
 $("settingsDialog").addEventListener("cancel", (e) => e.preventDefault()); // no Esc / back gesture
+
+// tap a line's icon (not its words) → a bubble under it saying what that line is for.
+// goes away after 5s, or on the next tap anywhere
+let tipTimer = null;
+let tipFor = null;
+function hideTip() {
+  $("setTip").classList.remove("on");
+  tipFor = null;
+}
+function showTip(icon) {
+  const tip = $("setTip");
+  const box = tip.parentElement.getBoundingClientRect();
+  const r = icon.getBoundingClientRect();
+  tip.textContent = icon.dataset.tip;
+  // the point (18px in from the bubble's left edge) sits under the icon's middle
+  tip.style.left = `${r.left + r.width / 2 - box.left - 18}px`;
+  tip.style.top = `${r.bottom - box.top + 8}px`;
+  tip.classList.add("on");
+  tipFor = icon;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(hideTip, 5000);
+}
+for (const icon of document.querySelectorAll("#settingsDialog [data-tip]")) {
+  icon.addEventListener("click", (e) => {
+    e.stopPropagation(); // the icon explains; it doesn't open the drop-down
+    if (tipFor === icon) hideTip();
+    else showTip(icon);
+  });
+}
+$("settingsDialog").addEventListener("pointerdown", (e) => {
+  if (!e.target.closest("[data-tip]")) hideTip();
+});
+$("settingsDialog").addEventListener("close", hideTip);

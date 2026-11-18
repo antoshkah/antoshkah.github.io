@@ -38,44 +38,58 @@ const WELCOME_KEY = "stats.welcomed";
   px(lids, 12, 1);
 })();
 
-// iOS / Android is picked for them from the device (they can change it); the browser is always typed
-function guessOs() {
-  const ua = navigator.userAgent;
-  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "iOS";
-  return /Android/.test(ua) ? "Android" : "";
-}
-let welcomeOs = "";
-// the search icon stays dim until both blanks are filled
-function updateWelcome() {
-  for (const b of document.querySelectorAll("[data-os]")) b.classList.toggle("on", b.dataset.os === welcomeOs);
-  $("wSearch").classList.toggle("ready", !!(welcomeOs && $("wBrowser").value.trim()));
-}
-$("wBrowser").addEventListener("input", updateWelcome);
-$("wBrowser").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  $("wBrowser").blur();
-  $("wSearch").click();
-});
-for (const b of document.querySelectorAll("[data-os]")) {
-  b.onclick = () => {
-    welcomeOs = b.dataset.os;
-    updateWelcome();
+// "powered by Claude Code" types out: every letter becomes its own span, each shown a little after the last
+// (starts once the little guy has walked in). keeps the <b> around "Claude Code" for its colour
+(function typeOut() {
+  const START = 1.7; // s
+  const EACH = 0.05; // s per letter
+  let i = 0;
+  const wrap = (node) => {
+    for (const n of [...node.childNodes]) {
+      if (n.nodeType !== Node.TEXT_NODE) {
+        wrap(n);
+        continue;
+      }
+      const letters = document.createDocumentFragment();
+      for (const ch of n.textContent) {
+        const s = document.createElement("span");
+        s.textContent = ch;
+        s.style.animationDelay = `${(START + i++ * EACH).toFixed(2)}s`;
+        letters.append(s);
+      }
+      n.replaceWith(letters);
+    }
   };
-}
-// search: "how to add a web page to the home screen in <browser> on <os>". a blank missing → nothing (or the field)
-$("wSearch").onclick = () => {
-  const browser = $("wBrowser").value.trim();
-  if (!browser) return $("wBrowser").focus();
-  if (!welcomeOs) return;
-  const q = `how to add a web page to the home screen in ${browser} on ${welcomeOs}`;
-  window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, "_blank", "noopener");
+  wrap(document.querySelector(".pb-text"));
+})();
+
+// "how & why?" → the how & why page, over the welcome page (back / Esc returns to the welcome page)
+$("howBtn").onclick = () => {
+  show($("howDialog"));
+  $("howDialog").scrollTop = 0;
 };
-// the thumbs up is the only way on, and it's only shown once
-$("welcomeDone").onclick = () => {
+// the thumbs up at the bottom of how & why is the way on, and the welcome is only shown once
+$("howDone").onclick = () => {
   try {
     localStorage.setItem(WELCOME_KEY, "1");
   } catch {}
+  $("howDialog").close();
   $("welcomeDialog").close();
   updateBar(); // off-white again for the ? / import screen
 };
 $("welcomeDialog").addEventListener("cancel", (e) => e.preventDefault());
+
+// how & why: tap a guide's heading to open / close it; opening one closes the other in the same group
+for (const head of document.querySelectorAll("#howDialog .acc-head")) {
+  head.setAttribute("aria-expanded", "false");
+  head.onclick = () => {
+    const item = head.parentElement;
+    const open = !item.classList.contains("open");
+    for (const other of item.parentElement.children) {
+      other.classList.remove("open");
+      other.querySelector(".acc-head").setAttribute("aria-expanded", "false");
+    }
+    item.classList.toggle("open", open);
+    head.setAttribute("aria-expanded", open);
+  };
+}
