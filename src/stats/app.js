@@ -51,6 +51,14 @@ function normalize(s) {
     stat.highest = Math.max(Number(s.highest) || 0, stat.count, ...all.map((e) => e.count || 0));
   }
   if (s.deleted) stat.deleted = String(s.deleted);
+  // the latest +1 / −1 (counted) or pause / resume (timed), if there's been one
+  const lastOk = timer ? ["pause", "resume"] : ["add", "subtract"];
+  if (s.last && lastOk.includes(s.last.action) && !isNaN(Date.parse(s.last.time))) stat.last = { action: s.last.action, time: String(s.last.time) };
+  else if (!timer) {
+    // older files logged every tap: their newest +1 / −1 becomes "last"
+    const tap = all.filter((e) => e.action === "add" || e.action === "subtract").at(-1);
+    if (tap && !isNaN(Date.parse(tap.time))) stat.last = { action: tap.action, time: tap.time };
+  }
   stat.log = log;
   return stat;
 }
@@ -95,7 +103,8 @@ function record(stat, action) {
       stat.since = null;
       stat.deleted = time;
     }
-    // pausing / resuming isn't logged, only resets and deletes
+    // pausing / resuming isn't logged, only resets and deletes; the latest pause / resume is kept in "last"
+    if (action === "pause" || action === "resume") stat.last = { action, time };
     if (action === "reset" || action === "delete") stat.log.push({ action, time, elapsed: stat.elapsed });
     save();
     return;
@@ -106,7 +115,8 @@ function record(stat, action) {
   const time = new Date().toISOString();
   if (action === "delete") stat.deleted = time;
   stat.highest = Math.max(stat.highest, stat.count);
-  // taps (add / subtract) only change the number; resets and deletes are logged
+  // taps (add / subtract) aren't logged, only the latest one is kept in "last"; resets and deletes are logged
+  if (action === "add" || action === "subtract") stat.last = { action, time };
   if (action === "reset" || action === "delete") stat.log.push({ action, time, count: stat.count });
   save();
 }
@@ -162,11 +172,9 @@ function onLongPress(el, onLong, ms) {
 // two taps closer together than this count as a double tap
 const DOUBLE_TAP_MS = 300;
 
-// a timed row in the list, anywhere on it. two settings decide what does what:
-//   timerOpen:  "hold" | "double"  → opens the stat page
-//   timerPause: "off" | "tap" | "double"  → pauses / resumes ("off": only on the stat page)
-// never both "double". when opening is a double tap, a single tap has to wait
-// DOUBLE_TAP_MS to be sure it isn't the start of one, then pauses.
+// a timed row in the list, anywhere on it. holding it (the hold time) always opens the stat page, like counted stats.
+// tapping it pauses / resumes, depending on the pause setting:
+//   timerPause: "off" (only on the stat page) | "tap" | "double" (a single tap does nothing)
 function timerGesture(el, stat) {
   let holdTimer = null, tapTimer = null, taps = 0, down = false, opened = false;
   const open = () => {
@@ -179,28 +187,22 @@ function timerGesture(el, stat) {
   el.addEventListener("pointerdown", () => {
     down = true;
     opened = false;
-    if (settings.timerOpen === "hold") holdTimer = setTimeout(open, settings.hold);
+    holdTimer = setTimeout(open, settings.hold);
   });
   el.addEventListener("pointerup", () => {
     if (!down) return;
     down = false;
     clearTimeout(holdTimer);
     if (opened) return;
-    const double = settings.timerOpen === "double" ? "open" : settings.timerPause === "double" ? "pause" : null;
-    if (!double) {
-      if (settings.timerPause === "tap") toggleTimer(stat); // plain tap, nothing to wait for
-      return;
-    }
+    if (settings.timerPause === "tap") return toggleTimer(stat);
+    if (settings.timerPause !== "double") return; // "off"
     taps++;
     if (taps === 2) {
       clearTimeout(tapTimer);
       taps = 0;
-      return double === "open" ? open() : toggleTimer(stat);
+      return toggleTimer(stat);
     }
-    tapTimer = setTimeout(() => {
-      taps = 0;
-      if (settings.timerPause === "tap") toggleTimer(stat); // it was just the one tap
-    }, DOUBLE_TAP_MS);
+    tapTimer = setTimeout(() => (taps = 0), DOUBLE_TAP_MS); // too slow for a double tap: start over
   });
   for (const ev of ["pointerleave", "pointercancel"]) {
     el.addEventListener(ev, () => {
@@ -232,6 +234,7 @@ let timerEls = [];
 setInterval(() => {
   for (const [el, stat] of timerEls) if (stat.since) el.textContent = valueOf(stat);
   if (editing && editing.kind === "timer" && editing.since) $("editCount").textContent = valueOf(editing);
+  if (editing && settings.showAge) showEditAge(); // the age ticks over each minute while the page is open
 }, 500);
 
 function render() {
@@ -376,22 +379,62 @@ function showEditValue() {
   showEditMeta();
 }
 // "2026-11-18 14:05 UTC": 24h, always UTC, so it reads the same wherever you are
-function fmtUtc(iso) {
+// pass seconds = true for "…14:05:09 UTC" (used by "last", where taps can be seconds apart)
+function fmtUtc(iso, seconds = false) {
   const d = new Date(iso);
   if (isNaN(d)) return "";
   const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+  const secs = seconds ? `:${pad(d.getUTCSeconds())}` : "";
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}${secs} UTC`;
 }
 // the greyed lines under the buttons: when it was made, how often it's been reset (each optional in settings)
 function showEditMeta() {
   const resets = editing.log.filter((e) => e.action === "reset").length;
-  $("editCreated").textContent = `created ${fmtUtc(editing.created)}`;
+  // the wording stays normal, the values are bold
+  $("editCreated").innerHTML = `created <b>${fmtUtc(editing.created)}</b>`;
   $("editCreated").hidden = !settings.showCreated;
   $("editResets").textContent = resets === 0 ? "never reset" : `reset ${resets} time${resets === 1 ? "" : "s"}`;
   $("editResets").hidden = !settings.showResets;
   // deleted stats always say when they went
   $("editDeleted").textContent = editing.deleted ? `deleted ${fmtUtc(editing.deleted)}` : "";
   $("editDeleted").hidden = !editing.deleted;
+  showEditAge();
+  // last action: "last +1 · …", "last −1 · …", "paused · …", "resumed · …" (nothing yet → no line)
+  // last action: + / − for counted stats, the play / pause icons for timed ones
+  const icon = (id) => `<svg class="ic meta-ic"><use href="#${id}" /></svg>`;
+  const marks = { add: "+", subtract: "−", pause: icon("i-pause"), resume: icon("i-play") };
+  const last = editing.last;
+  $("editLast").innerHTML = last ? `last <b>${marks[last.action]}</b> · <b>${fmtUtc(last.time, true)}</b>` : "";
+  $("editLast").hidden = !settings.showLast || !last;
+  // show logs: newest first, an icon per action (same as its button: reset arrow, red trash, undo arrow) · time
+  const logIcons = { reset: icon("i-reset"), delete: `<span class="danger">${icon("i-trash")}</span>`, restore: icon("i-restore") };
+  const log = $("editLog");
+  log.innerHTML = "";
+  for (const e of [...editing.log].reverse()) {
+    const li = document.createElement("li");
+    li.innerHTML = `${logIcons[e.action] || e.action} · ${fmtUtc(e.time)}`;
+    li.setAttribute("aria-label", `${e.action}, ${fmtUtc(e.time)}`);
+    log.append(li);
+  }
+  if (!editing.log.length) log.innerHTML = "<li>no resets, deletes or restores yet</li>";
+  log.hidden = !settings.showLogs;
+}
+// stat age: how long since it was made. years, days, hours, minutes (no seconds), from the first unit that isn't 0
+function fmtAge(ms) {
+  const m = Math.floor(Math.max(0, ms) / 60000);
+  const parts = [
+    [Math.floor(m / 525600), "y"],
+    [Math.floor((m % 525600) / 1440), "d"],
+    [Math.floor((m % 1440) / 60), "h"],
+    [m % 60, "m"],
+  ];
+  const first = parts.findIndex(([n]) => n > 0);
+  return parts.slice(first === -1 ? 3 : first).map(([n, u]) => `${n}${u}`).join(" ");
+}
+function showEditAge() {
+  const born = Date.parse(editing.created);
+  $("editAge").innerHTML = isNaN(born) ? "" : `active since <b>${fmtAge(Date.now() - born)}</b>`;
+  $("editAge").hidden = !settings.showAge || isNaN(born);
 }
 function openEdit(stat) {
   editing = stat;
@@ -451,6 +494,7 @@ function change(delta) {
   else return;
   render(); // keep the list behind the popup in sync
   $("editCount").textContent = editing.count;
+  showEditMeta(); // "last +1 / −1" updates straight away
   if (navigator.vibrate) navigator.vibrate(10);
 }
 // counted: tap adds. timed: tap or double tap (the pause setting) pauses / resumes
@@ -510,6 +554,7 @@ $("restoreBtn").onclick = () => {
   ask(`restore "${stat.name}"?`, () => {
     delete stat.deleted;
     const time = new Date().toISOString();
+    stat.created = time; // restored = a fresh start: created (and so "active since") count from now
     stat.log.push(stat.kind === "timer" ? { action: "restore", time, elapsed: stat.elapsed } : { action: "restore", time, count: stat.count });
     save();
     render();
@@ -531,7 +576,7 @@ $("purgeBtn").onclick = () => {
 // full screen, so "outside" is any empty space: anything that isn't a button (or the rename field) goes back.
 // mid-rename, the first tap on empty space just finishes the rename
 $("editDialog").addEventListener("click", (e) => {
-  if (e.target.closest("button, input")) return;
+  if (e.target.closest("button, input, .edit-log")) return; // the log list scrolls; tapping it shouldn't close the page
   // the tap that ended a rename (the field loses focus first, then this click lands) stays on the page
   if (!$("editNameInput").hidden) return finishRename(true);
   if (Date.now() - renameEnded < 500) return;
@@ -647,6 +692,7 @@ async function exportBackup(readOnly = false) {
       since: "Timed stats only: when the current run started (UTC), or null if paused.",
       highest: "Counted stats: the highest the count has been. Timed stats: the longest it has run, in milliseconds.",
       deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
+      last: "The latest change that isn't logged: action = add | subtract (counted stats) or pause | resume (timed stats), time = when (UTC). Only the latest one is kept.",
       log: "Resets, deletes and restores, oldest first. action = reset | delete | restore, time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
     },
     seal: "",

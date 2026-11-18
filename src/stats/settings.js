@@ -73,19 +73,11 @@ function renderSettings() {
   }
   $("themeVal").innerHTML = `<span class="dot" style="background:${THEMES[settings.theme].bg}"></span>${settings.theme}`;
 }
-// timer gestures: double tap can only do one job, so picking it for one moves the other off it.
-// stays open so both can be set in one go
+// pause: 0☝ / 1☝ / 2☝ (stays open, so you can see what you picked)
 for (const b of document.querySelectorAll("[data-mode]")) {
   const [key, value] = b.dataset.mode.split(":");
   b.onclick = () => {
     settings[key] = value;
-    if (value === "double") {
-      if (key === "timerOpen") {
-        if (settings.timerPause === "double") settings.timerPause = "tap";
-      } else {
-        settings.timerOpen = "hold";
-      }
-    }
     saveSettings();
   };
 }
@@ -152,7 +144,9 @@ function showTip(icon) {
   const tip = $("setTip");
   const box = tip.parentElement.getBoundingClientRect();
   const r = icon.getBoundingClientRect();
-  tip.textContent = icon.dataset.tip;
+  // plain text, except {clock} becomes the clock icon (e.g. "a {clock} stat" = a timed stat)
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]);
+  tip.innerHTML = esc(icon.dataset.tip).replaceAll("{clock}", '<svg class="ic tip-ic" aria-label="timed"><use href="#i-clock" /></svg>');
   // the point (18px in from the bubble's left edge) sits under the icon's middle
   tip.style.left = `${r.left + r.width / 2 - box.left - 18}px`;
   tip.style.top = `${r.bottom - box.top + 8}px`;

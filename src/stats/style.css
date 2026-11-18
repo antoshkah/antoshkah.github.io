@@ -151,7 +151,7 @@ dialog.page {
 }
 dialog.page[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 dialog.page > * { width: min(100%, 300px); }
-.settings { width: min(100%, 260px); }
+.settings { width: min(100%, 300px); } /* wide enough for the two columns of info checkboxes */
 .icons button[hidden] { display: none; }
 /* 👍 👎 sit close together, centred */
 #confirmView .icons, #exportConfirm .icons { justify-content: center; gap: 36px; }
@@ -552,19 +552,10 @@ body.viewing .row .count { cursor: default; }
   rotate: 45deg;
 }
 
-/* hold drop-down, compact: each row (symbol + controls) is centred as one unit, not lined up with the icons above */
-.hold-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
-.hold-row + .hold-row { margin-top: 2px; }
-.hold-row:last-child { padding-bottom: 6px; }
-.hold-row .stepper, .hold-row .modes { padding: 0; }
-.hold-ic { flex: none; width: 18px; height: 18px; display: grid; place-items: center; color: var(--muted); cursor: help; }
-.hold-ic.hash { font-size: 1rem; line-height: 1; }
-/* − and + hug the number */
-.hold-row .stepper { gap: 2px; }
-.hold-row .stepper button { width: 30px; height: 34px; font-size: 1.2rem; }
-.hold-row .stepper span { min-width: 3em; }
-.hold-row .modes { gap: 10px; }
-.hold-row .modes button { padding: 4px 6px; }
+/* hold drop-down: just − 0.5s +, compact and centred, − and + hugging the number */
+.hold-stepper { gap: 2px; padding: 0 0 6px; }
+.hold-stepper button { width: 30px; height: 34px; font-size: 1.2rem; }
+.hold-stepper span { min-width: 3em; }
 
 /* deleted stats in the list (settings → info → deleted): greyed, with a small trash can by the name */
 .row.deleted { opacity: 0.45; }
@@ -576,12 +567,17 @@ body.viewing .row .count { cursor: default; }
 .edit-meta #editDeleted { color: var(--danger); }
 
 /* info: checkboxes stacked, the block centred, the boxes lined up on the left */
-.checks { width: max-content; margin: 0 auto; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0 0 8px; }
-.checks button { display: flex; align-items: center; gap: 10px; padding: 6px 2px; font-size: 0.85rem; color: var(--muted); transition: color 0.15s; }
-.checks button.on { color: var(--fg); }
-.checks .box { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1.5px solid currentColor; }
+/* info: two columns of three (filled top to bottom), each box left of its label, the whole block centred.
+   it has to fit inside the settings column: the drop-down hides anything that sticks out */
+.checks { width: max-content; max-width: 100%; margin: 0 auto; display: grid; grid-template-rows: repeat(3, auto); grid-auto-flow: column; column-gap: 12px; row-gap: 2px; padding: 0 0 8px; }
+/* each row: box, label, ⓘ. only the box ticks; the label just reads (brighter when ticked) */
+.check-row { display: flex; align-items: center; gap: 10px; padding: 6px 2px; font-size: 0.85rem; color: var(--muted); transition: color 0.15s; }
+.check-row:has(.box.on) { color: var(--fg); }
+.checks .box { position: relative; width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1.5px solid currentColor; }
+/* a bigger invisible tap area around the small box */
+.checks .box::after { content: ""; position: absolute; inset: -8px; }
 .checks .box svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 3; opacity: 0; transition: opacity 0.15s; }
-.checks button.on .box svg { opacity: 1; }
+.checks .box.on svg { opacity: 1; }
 
 /* how & why: drop-down guides (same fold as the settings drop-downs). one open per group */
 .acc { margin: 8px 0 4px; }
@@ -595,3 +591,20 @@ body.viewing .row .count { cursor: default; }
 .acc-inner > :last-child { margin-bottom: 10px; }
 /* the step numbers sit left of the text; keep them inside the drop-down (it hides overflow while folding) */
 .acc-inner ol { padding-left: 2.2em; }
+
+/* info checkboxes: a small ⓘ after each label, for its bubble */
+.checks .check-ic { width: 14px; height: 14px; margin-left: 6px; color: var(--muted); cursor: help; }
+/* show logs on a stat's page: a short list, scrolls if it gets long */
+.edit-log { list-style: none; margin: 6px 0 0; padding: 0; max-height: 7.5em; overflow-y: auto; text-align: center; line-height: 1.5; }
+.edit-meta .edit-log[hidden] { display: none; }
+/* stat page info: the values bold (the wording isn't), the play / pause icon sized to the text */
+.edit-meta b { font-weight: bold; }
+.meta-ic { width: 1.25em; height: 1.25em; vertical-align: -0.3em; stroke-width: 2.6; }
+.check-row { font-size: 0.78rem; gap: 7px; text-align: left; white-space: nowrap; } /* labels stay on one line */
+.checks .check-ic { margin-left: 2px; }
+/* the narrowest phones (~320px wide) don't have room for two columns: one column of six instead */
+@media (max-width: 345px) {
+  .checks { grid-template-rows: none; grid-auto-flow: row; }
+}
+.how a { color: inherit; text-underline-offset: 3px; }
+.tip-ic { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }

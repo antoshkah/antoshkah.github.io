@@ -82,7 +82,12 @@ async function runDemo() {
     el.classList.remove("swell");
   };
   // shared steps: open the name field, type, then tap # or the clock
-  const addStat = async (kindEl) => {
+  // the demo stat is named after its kind: "counted" or "timed" (typed in, then shown on its row and page)
+  let statName = "";
+  const addStat = async (kindEl, name) => {
+    statName = name;
+    $("dName").textContent = name;
+    $("dPopName").textContent = name;
     await moveTo($("dStar"));
     await tap();
     $("dStar").hidden = true;
@@ -90,7 +95,7 @@ async function runDemo() {
     $("dBox").hidden = false;
     finger.classList.remove("on");
     await wait(300);
-    for (const ch of "demo") {
+    for (const ch of name) {
       $("dTyped").textContent += ch;
       await wait(110);
     }
@@ -111,7 +116,7 @@ async function runDemo() {
   };
   const resetAndDelete = async (zero) => {
     // reset → yes: the value swells and lands on zero
-    $("dAsk").textContent = `reset "demo"?`;
+    $("dAsk").textContent = `reset "${statName}"?`;
     await moveTo($("dReset"));
     await tap();
     $("dZero").classList.add("on");
@@ -124,7 +129,7 @@ async function runDemo() {
     await wait(800);
     // delete → yes: both pages close together (like the real app), back on the list
     // the stat vanishes in a burst of small straight sparks
-    $("dAsk").textContent = `delete "demo"?`;
+    $("dAsk").textContent = `delete "${statName}"?`;
     await moveTo($("dTrash"));
     await tap();
     $("dZero").classList.add("on");
@@ -172,7 +177,7 @@ async function runDemo() {
       await wait(700);
 
       // ── counted stat ──
-      await addStat($("dKStar"));
+      await addStat($("dKStar"), "counted");
       await wait(600);
 
       // tap the number a few times
@@ -200,7 +205,7 @@ async function runDemo() {
       asTimer(true);
       tSecs = 0;
       showTime("0s");
-      await addStat($("dKClock"));
+      await addStat($("dKClock"), "timed");
       tRunning = true; // starts counting the moment the clock is tapped
       finger.classList.remove("on");
       await wait(2600);
