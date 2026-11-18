@@ -280,12 +280,14 @@
       @keyframes stepB { 0% { opacity: 0; } 50% { opacity: 1; } }
       @keyframes blink { 0% { opacity: 0; } 90% { opacity: 1; } 94% { opacity: 0; } }
       @keyframes bob { 50% { transform: translateY(-3px); } }
-      .pb-text { font-size: 0.85rem; white-space: nowrap; overflow: hidden; width: 0; animation: type 1.1s steps(22) 1.7s forwards; }
+      /* types out by unclipping the real text width in 22 steps (one per character), so the end is always the
+         whole line, whatever the font or phone (a width in ch could round short and cut the last letter) */
+      .pb-text { font-size: 0.85rem; white-space: nowrap; clip-path: inset(0 100% 0 0); animation: type 1.1s steps(22) 1.7s forwards; }
       .pb-text b { color: #d97757; }
-      @keyframes type { to { width: 22ch; } }
+      @keyframes type { to { clip-path: inset(0 0 0 0); } }
       @media (prefers-reduced-motion: reduce) {
         .clawd, .clawd * { animation: none !important; }
-        .pb-text { animation: none; width: auto; }
+        .pb-text { animation: none; clip-path: none; }
       }
       .warn { margin: 0; font-weight: normal; font-size: 0.85rem; line-height: 1.45; }
       .warn b { font-weight: bold; }
