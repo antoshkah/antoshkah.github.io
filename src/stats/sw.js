@@ -1,6 +1,6 @@
 // Offline support: serve from cache, refresh cache in the background.
 // Bump VERSION when you change the app files.
-const VERSION = "stats-v12";
+const VERSION = "stats-v14";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "../fonts/ia-writer-mono-latin-400-normal.ttf", "../fonts/ia-writer-mono-latin-700-normal.ttf"];
 
 self.addEventListener("install", (e) => {

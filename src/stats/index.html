@@ -405,7 +405,7 @@
         font-size: 1.1rem;
       }
       .swatches button.on { outline: 2px solid var(--fg); outline-offset: 2px; }
-      #settingsDialog .done { display: block; width: 100%; padding: 12px; color: var(--muted); }
+      #settingsDialog .done { display: grid; place-items: center; width: 100%; padding: 12px; color: var(--muted); }
     </style>
     <script>
       // settings are applied here, before the page draws, so there's no flash of the wrong colours
@@ -602,7 +602,7 @@
     <dialog id="settingsDialog">
       <div class="fonts" id="fontList"></div>
       <div class="swatches" id="themeList"></div>
-      <button class="done" id="settingsDone">done</button>
+      <button class="done" id="settingsDone" aria-label="Done"><svg class="ic"><use href="#i-exit" /></svg></button>
     </dialog>
 
     <dialog id="helpDialog">
@@ -1457,9 +1457,7 @@
         themes.innerHTML = "";
         for (const [key, t] of Object.entries(THEMES)) {
           const b = document.createElement("button");
-          b.textContent = "★";
           b.style.background = t.bg;
-          b.style.color = t.fg;
           b.setAttribute("aria-label", key);
           b.title = key;
           b.classList.toggle("on", key === settings.theme);
