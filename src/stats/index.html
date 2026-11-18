@@ -3,15 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>tally</title>
+    <title>stats</title>
     <meta name="theme-color" content="#141414" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
-    <meta name="apple-mobile-web-app-title" content="tally" />
+    <meta name="apple-mobile-web-app-title" content="stats" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="icon-180.png" />
-    <link rel="icon" type="image/png" href="../images/favicon.png" />
+    <!-- both are redrawn in the chosen colours by updateIcons(); these files are the dark default -->
+    <link rel="apple-touch-icon" id="touchIcon" href="icon-180.png" />
+    <link rel="icon" type="image/png" id="tabIcon" href="icon-192.png" />
     <style>
+      @font-face {
+        font-family: "iA Writer Mono";
+        src: url("../fonts/ia-writer-mono-latin-400-normal.ttf") format("truetype");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "iA Writer Mono";
+        src: url("../fonts/ia-writer-mono-latin-700-normal.ttf") format("truetype");
+        font-weight: 700;
+      }
       :root {
         color-scheme: dark;
         --bg: #141414;
@@ -20,11 +31,12 @@
         --card: #1f1f1f;
         --line: #333;
         --danger: #e0644f;
+        --font: "iA Writer Mono", "Courier New", monospace;
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { margin: 0; background: var(--bg); color: var(--fg); }
       body {
-        font-family: "Courier New", monospace;
+        font-family: var(--font);
         font-weight: bold;
         min-height: 100dvh;
         padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px);
@@ -48,13 +60,13 @@
 
       button { touch-action: manipulation; } /* no double-tap zoom when tapping fast */
 
-      /* one tally per row: greyed name on the left, number on the right */
+      /* one stat per row: greyed name on the left, number on the right */
       #list {
         width: min(100%, 260px);
         display: flex;
         flex-direction: column;
       }
-      body.empty #list { display: none; }
+      .empty #list { display: none; }
       .row {
         display: flex;
         align-items: center;
@@ -69,153 +81,711 @@
         font-variant-numeric: tabular-nums;
       }
 
-      .plus {
+      /* no stats yet: the whole page goes off-white (colours inverted) */
+      /* first visit: the whole page is off-white (colours inverted) until "got it" or an import */
+      html.fresh, html.fresh body { background: var(--fg); color: var(--bg); }
+      .fresh .intro { color: var(--bg); }
+
+      /* first visit: a big ? (how to use) and import icon, side by side */
+      .intro { display: flex; gap: 36px; }
+      .intro button { width: 80px; height: 80px; display: grid; place-items: center; }
+      .intro .glyph { font-size: 3.6rem; }
+      .intro .ic { width: 52px; height: 52px; }
+      .intro[hidden] { display: none; }
+
+      /* the star: white on dark, bigger while there are no stats */
+      .star {
         width: 56px;
         height: 56px;
-        border-radius: 50%;
-        font-size: 2rem;
-        line-height: 1;
-        color: var(--muted);
-        border: 1px solid var(--line);
-      }
-      body.empty .plus {
-        width: 80px;
-        height: 80px;
-        font-size: 2.8rem;
-        background: var(--fg);
-        color: var(--bg);
-        border: 0;
-      }
-      .newbox {
-        width: min(100%, 220px);
-        font: inherit;
-        font-size: 16px; /* prevents iOS zoom on focus */
-        padding: 20px;
-        text-align: center;
-        background: var(--card);
-        border: 1px solid var(--fg);
-        border-radius: 16px;
+        display: grid;
+        place-items: center;
         color: var(--fg);
+      }
+      .star svg { width: 32px; height: 32px; fill: currentColor; }
+      .empty .star { width: 80px; height: 80px; }
+      .empty .star svg { width: 52px; height: 52px; }
+      .star[hidden] { display: none; }
+
+      /* adding a stat: just a cursor in empty space, then ★ (counted) or clock (timed) below */
+      .composer { width: min(100%, 260px); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+      .composer[hidden] { display: none; }
+      .newbox {
+        width: 100%;
+        font: inherit;
+        font-size: 1.5rem; /* 16px+ also stops iOS zooming in on focus */
+        padding: 10px 0;
+        text-align: center;
+        background: transparent;
+        border: 0;
+        color: var(--fg);
+        caret-color: var(--fg);
         outline: none;
         user-select: text;
         -webkit-user-select: text;
       }
+      .kinds { display: flex; gap: 28px; }
+      .kinds button { width: 56px; height: 56px; display: grid; place-items: center; color: var(--fg); }
+      .kinds .fill { width: 30px; height: 30px; fill: currentColor; }
+      .kinds .ic { width: 30px; height: 30px; }
+
+      /* timed stats: smaller text (the values are wider), greyed out while paused */
+      .row .count.timer { font-size: 2.2rem; }
+      .paused { color: var(--muted); }
 
       dialog {
         border: 1px solid var(--line);
-        border-radius: 16px;
+        border-radius: 0;
         background: var(--bg);
         color: var(--fg);
-        padding: 20px;
-        width: min(92vw, 360px);
+        padding: 6px;
+        width: min(60vw, 200px);
         font-family: inherit;
       }
       dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-      dialog input {
+
+      /* plain text button lists (zero, menu, intro) */
+      .choices { display: grid; }
+      .choices[hidden] { display: none; }
+      .choices button { padding: 14px; }
+      .muted { color: var(--muted); }
+      .danger { color: var(--danger); }
+      /* a row of symbols (menu, reset/delete) */
+      .icons { display: flex; justify-content: space-around; }
+      .icons[hidden] { display: none; }
+      .icons button { width: 52px; height: 52px; padding: 0; display: grid; place-items: center; }
+      .ic { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .glyph { font-size: 1.9rem; font-weight: 900; line-height: 1; }
+      #menuDialog { width: min(86vw, 280px); }
+      #exportDialog { width: min(92vw, 300px); }
+      #helpDialog .legend .duo { display: flex; height: 44px; align-items: center; }
+      #helpDialog .legend .duo .ic { width: 30px; height: 30px; }
+      .icons button.pair { width: 72px; padding: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 2px; }
+      .icons button.pair .ic { flex: none; display: block; width: 24px; height: 24px; }
+
+      /* viewing someone's file: eye + (read-only) above the list, exit below */
+      .viewing-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        margin-bottom: 8px;
+        color: var(--muted);
+      }
+      .viewing-label .ic { width: 34px; height: 34px; color: var(--fg); }
+      .viewing-label span { font-size: 0.8rem; font-style: italic; }
+      .viewing-label[hidden], #viewBack[hidden] { display: none; }
+      #viewBack { width: 56px; height: 56px; display: grid; place-items: center; color: var(--muted); }
+      body.viewing .row .count { cursor: default; }
+      #zeroDialog { width: min(72vw, 220px); }
+      /* the whole app is bold, so the export question goes regular to let its key words stand out */
+      .confirm-text { font-weight: normal; }
+      .confirm-text b { font-weight: bold; color: var(--fg); }
+      #confirmText, .confirm-text { padding: 14px 8px 6px; font-size: 0.9rem; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
+
+      /* one stat, full screen: tap any empty space to go back */
+      #editDialog {
         width: 100%;
-        font: inherit;
-        font-size: 16px;
-        padding: 12px;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        border: 0;
+        padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px);
         text-align: center;
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        color: var(--fg);
-        margin-bottom: 12px;
       }
-      .stack { display: grid; gap: 8px; }
-      .stack button {
-        padding: 12px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: var(--card);
-      }
-      .stack button.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-      .stack button.danger { color: var(--danger); }
-      /* square popup, sharp corners, plain text controls */
-      #editDialog, #zeroDialog { border-radius: 0; }
-      #editDialog { width: min(72vw, 260px); aspect-ratio: 1; padding: 14px; text-align: center; }
-      #editDialog[open] { display: flex; flex-direction: column; }
-      #editName { font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
+      #editDialog[open] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+      #editDialog > * { width: min(100%, 300px); }
+      #editName { font-size: 1.1rem; color: var(--muted); overflow-wrap: anywhere; }
       #editCount {
-        flex: 1;
-        width: 100%;
-        font-size: 3.4rem;
+        padding: 12px 0;
+        font-size: 5.5rem;
         line-height: 1.1;
         font-variant-numeric: tabular-nums;
         overflow-wrap: anywhere;
       }
+      #editCount.timer { font-size: 3.4rem; }
       .edit-row { display: flex; justify-content: space-around; }
-      .edit-row button { width: 64px; height: 56px; font-size: 2rem; line-height: 1; color: var(--muted); }
+      .edit-row button { width: 64px; height: 56px; font-size: 2rem; line-height: 1; color: var(--muted); display: grid; place-items: center; }
+      .edit-row button[hidden] { display: none; }
+      #helpDialog .ic { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
 
-      #zeroDialog { width: min(60vw, 200px); padding: 6px; }
-      .choices { display: grid; }
-      .choices[hidden] { display: none; }
-      .choices button { padding: 14px; }
-      #deleteBtn, #yesBtn.danger { color: var(--danger); }
-      #cancelBtn, #noBtn { color: var(--muted); }
-      #confirmText { padding: 14px 8px 6px; font-size: 0.9rem; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
+      /* how to use */
+      /* how to use: a full page, everything centred */
+      #helpDialog {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        border: 0;
+        padding: calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px);
+        text-align: center;
+        overflow-y: auto;
+      }
+      #helpDialog[open] { display: flex; flex-direction: column; align-items: center; }
+      #helpDialog > * { width: min(100%, 340px); }
+      #helpDialog > :first-child { margin-top: auto; } /* auto margins centre vertically but still scroll on short screens */
+      #helpDialog > :last-child { margin-bottom: auto; }
+      #helpDialog ul { list-style: none; }
+      /* menu legend: big symbol, its meaning underneath, one per line */
+      #helpDialog .legend { display: flex; justify-content: space-between; align-items: flex-start; margin: 14px 0 6px; }
+      #helpDialog .legend li { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; font-size: 0.75rem; line-height: 1.3; color: var(--muted); }
+      #helpDialog .legend .ic { width: 44px; height: 44px; vertical-align: 0; color: var(--fg); }
+      #helpDialog .legend b { font-size: 2.7rem; font-weight: 900; line-height: 1; height: 44px; display: grid; place-items: center; color: var(--fg); }
+      /* the demo mimics the real page, so it keeps the app's own alignment */
+      #helpDialog .demo { text-align: left; }
+      /* first visit: the guide matches the off-white page (dark text), the demo stays dark */
+      .fresh #helpDialog { background: var(--fg); color: var(--bg); }
+      .fresh #helpDialog .legend .ic, .fresh #helpDialog .legend b { color: var(--bg); }
+      #helpDialog h2 { font-size: 0.85rem; color: var(--muted); margin: 20px 0 6px; text-transform: lowercase; }
+      #helpDialog h2:first-child { margin-top: 0; }
+      #helpDialog p, #helpDialog li { font-weight: normal; font-size: 0.9rem; line-height: 1.45; margin: 0 0 6px; }
+      #helpDialog ul { padding: 0; margin: 0 0 6px; }
+      #helpDialog b { font-weight: bold; }
+      #helpDialog .done { display: grid; place-items: center; width: 100%; padding: 14px; margin-top: 14px; }
+      #helpDialog .done .ic { width: 42px; height: 42px; vertical-align: 0; }
+      #helpDialog a { color: inherit; }
+
+      /* the little animated walkthrough at the top of the guide */
+      .demo {
+        position: relative;
+        height: 210px;
+        margin: 4px 0 14px;
+        border: 1px solid var(--line);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        /* always the app's dark look, even on the off-white first-visit guide */
+        background: var(--bg);
+        color: var(--fg);
+      }
+      /* fade the scene, not the box, so the dark frame doesn't blink on a light page */
+      .demo.fade > * { opacity: 0 !important; transition: opacity 0.4s !important; }
+      .demo [hidden] { display: none !important; }
+      .d-row { width: 150px; display: flex; align-items: center; gap: 10px; }
+      .d-name { flex: 1; font-size: 0.75rem; color: var(--muted); }
+      .d-count { font-size: 1.9rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+      .d-star { width: 32px; height: 32px; display: grid; place-items: center; }
+      .d-star svg { width: 20px; height: 20px; fill: currentColor; }
+      .d-compose { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+      .d-typed { font-size: 0.95rem; min-height: 1.3em; }
+      .d-kinds { display: flex; gap: 18px; }
+      .d-kinds span { width: 28px; height: 28px; display: grid; place-items: center; }
+      .d-kinds svg { width: 18px; height: 18px; }
+      .d-kinds .d-fill { fill: currentColor; }
+      .d-count.timer { font-size: 1.35rem; }
+      .d-big.timer { font-size: 2rem; }
+      .d-caret { display: inline-block; width: 1px; height: 0.9em; margin-left: 1px; vertical-align: -0.1em; background: var(--fg); animation: blink 1s steps(1) infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+      .d-pop, .d-zero {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+        transform: translate(-50%, -50%) scale(0.92);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s, transform 0.2s;
+      }
+      .d-pop.on, .d-zero.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      /* the stat page fills the whole demo screen, like the real one */
+      .d-pop {
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        box-shadow: none;
+        transform: scale(0.97);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-align: center;
+      }
+      .d-pop.on { transform: none; }
+      .d-pop .d-name { flex: none; }
+      .d-big { display: grid; place-items: center; font-size: 3rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+      .d-btns { width: 150px; display: flex; justify-content: space-around; color: var(--muted); font-size: 1.3rem; line-height: 1; }
+      .d-btns span { width: 30px; height: 26px; display: grid; place-items: center; }
+      .d-btns .ic, .d-zero .ic { width: 18px; height: 18px; }
+      .d-zero { display: flex; gap: 6px; padding: 4px 8px; box-shadow: none; }
+      .d-zero span { width: 34px; height: 34px; display: grid; place-items: center; }
+      /* the pointing-hand cursor; its fingertip sits exactly on the target point */
+      .d-finger {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 28px;
+        height: 28px;
+        margin: -1px 0 0 -10.5px; /* fingertip = (9, 1.1) in the 24-unit drawing */
+        opacity: 0;
+        transform-origin: 0 0;
+        transition: transform 0.5s ease-in-out, opacity 0.3s;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .d-finger svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        transform-origin: 10.5px 1px; /* squash toward the fingertip */
+        transition: scale 0.12s;
+        fill: #fff;
+        stroke: #000;
+        stroke-width: 1.3;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+      }
+      .d-finger.on { opacity: 1; }
+      .d-finger.press svg { scale: 0.82; }
+      /* hold: puff up, press down, then a little shake while held */
+      .d-finger.hold svg { animation: hold 0.75s ease-out forwards; }
+      @keyframes hold {
+        0% { scale: 1; rotate: 0deg; }
+        20% { scale: 1.2; rotate: 0deg; }
+        40% { scale: 0.8; rotate: 0deg; }
+        55% { scale: 0.8; rotate: -5deg; }
+        70% { scale: 0.8; rotate: 5deg; }
+        85% { scale: 0.8; rotate: -3deg; }
+        100% { scale: 0.8; rotate: 0deg; }
+      }
+      /* big icon that flashes when reset / delete is picked */
+      .d-flash { position: absolute; left: 50%; top: 50%; translate: -50% -50%; opacity: 0; pointer-events: none; z-index: 1; }
+      .d-flash .ic { width: 64px; height: 64px; stroke-width: 1.8; }
+      .d-flash.go { animation: flash 0.7s ease-out; }
+      @keyframes flash {
+        0% { opacity: 0; scale: 0.5; }
+        30% { opacity: 1; scale: 1.05; }
+        100% { opacity: 0; scale: 1.35; }
+      }
+      /* delete: the row puffs away into a few specks */
+      /* delete: the row vanishes and a few short lines burst out */
+      .poof { animation: poof 0.15s forwards; }
+      @keyframes poof { to { opacity: 0; } }
+      .d-line {
+        position: absolute;
+        width: 2px;
+        height: 10px;
+        margin: -5px 0 0 -1px;
+        background: var(--fg);
+        pointer-events: none;
+        rotate: var(--a);
+        animation: line 0.4s ease-out forwards;
+      }
+      @keyframes line { to { translate: var(--dx) var(--dy); opacity: 0; } }
+
+      /* reset: the number swells, then lands on 0 */
+      .swell { animation: swell 0.5s ease-in-out; }
+      @keyframes swell { 45% { scale: 1.7; } }
+
+      .bump { animation: bump 0.18s; }
+      @keyframes bump { 50% { transform: scale(1.15); } }
+
+      /* settings */
+      #settingsDialog { width: min(88vw, 320px); padding: 16px; }
+      .fonts { display: grid; margin-bottom: 18px; }
+      .fonts button { padding: 10px 8px; text-align: center; color: var(--muted); }
+      .fonts button.on { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
+      .swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 8px; }
+      .swatches button {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        display: grid;
+        place-items: center;
+        font-size: 1.1rem;
+      }
+      .swatches button.on { outline: 2px solid var(--fg); outline-offset: 2px; }
+      #settingsDialog .done { display: block; width: 100%; padding: 12px; color: var(--muted); }
     </style>
+    <script>
+      // settings are applied here, before the page draws, so there's no flash of the wrong colours
+      const THEMES = {
+        dark:   { bg: "#141414", fg: "#ece7df", muted: "#8a857d", card: "#1f1f1f", line: "#333333", scheme: "dark" },
+        light:  { bg: "#f2efe9", fg: "#1a1a1a", muted: "#8a857d", card: "#e6e2da", line: "#cfcac1", scheme: "light" },
+        paper:  { bg: "#efe4cf", fg: "#3a2c1e", muted: "#9a8770", card: "#e3d5bb", line: "#cdbb9c", scheme: "light" },
+        navy:   { bg: "#0f1626", fg: "#e6ecf5", muted: "#7c8aa3", card: "#18223a", line: "#2a3654", scheme: "dark" },
+        forest: { bg: "#121a14", fg: "#e3ecd9", muted: "#7f8f7a", card: "#1b261d", line: "#2d3b2f", scheme: "dark" },
+      };
+      const FONTS = {
+        writer:  { label: "writer mono", css: '"iA Writer Mono", "Courier New", monospace' },
+        courier: { label: "courier", css: '"Courier New", monospace' },
+        sans:    { label: "sans", css: 'system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif' },
+        serif:   { label: "serif", css: 'Georgia, "Times New Roman", serif' },
+        rounded: { label: "rounded", css: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif' },
+      };
+      const SETTINGS_KEY = "stats.settings";
+      const OLD_SETTINGS_KEY = "stats.appearance"; // saved before the rename
+
+      function loadSettings() {
+        try {
+          const l = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? localStorage.getItem(OLD_SETTINGS_KEY)) || {};
+          return { theme: THEMES[l.theme] ? l.theme : "dark", font: FONTS[l.font] ? l.font : "writer" };
+        } catch {
+          return { theme: "dark", font: "writer" };
+        }
+      }
+
+      function applySettings(settings) {
+        const t = THEMES[settings.theme];
+        const s = document.documentElement.style;
+        s.setProperty("--bg", t.bg);
+        s.setProperty("--fg", t.fg);
+        s.setProperty("--muted", t.muted);
+        s.setProperty("--card", t.card);
+        s.setProperty("--line", t.line);
+        s.setProperty("--font", FONTS[settings.font].css);
+        s.colorScheme = t.scheme;
+        updateBar();
+        updateIcons(settings.theme);
+      }
+
+      // star on the theme's background, same layout as icon-*.png
+      function drawIcon(size, t) {
+        const c = document.createElement("canvas");
+        c.width = c.height = size;
+        const g = c.getContext("2d");
+        g.fillStyle = t.bg;
+        g.fillRect(0, 0, size, size);
+        const cx = size / 2, cy = size * 0.52, outer = size * 0.3, inner = outer * 0.45;
+        g.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const r = i % 2 ? inner : outer;
+          const a = -Math.PI / 2 + (i * Math.PI) / 5;
+          g.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
+        }
+        g.closePath();
+        g.fillStyle = t.fg;
+        g.fill();
+        return c.toDataURL("image/png");
+      }
+
+      // tab icon follows the theme live; the iPhone home-screen icon is whatever it is
+      // at the moment "Add to Home Screen" is tapped. Android uses the manifest's dark files.
+      function updateIcons(theme) {
+        try {
+          const custom = theme !== "dark";
+          document.getElementById("tabIcon").href = custom ? drawIcon(64, THEMES[theme]) : "icon-192.png";
+          document.getElementById("touchIcon").href = custom ? drawIcon(180, THEMES[theme]) : "icon-180.png";
+        } catch {}
+      }
+
+      // phone status bar matches the page: off-white on first visit, dark otherwise
+      function updateBar() {
+        const t = THEMES[loadSettings().theme];
+        document.querySelector('meta[name="theme-color"]').content =
+          document.documentElement.classList.contains("fresh") ? t.fg : t.bg;
+      }
+
+      // set the empty / first-visit look before the page draws too
+      try {
+        const saved = JSON.parse(localStorage.getItem("stats.v1") ?? localStorage.getItem("tally.v1"));
+        const hasStats = Array.isArray(saved) && saved.some((s) => !s.deleted);
+        if (!hasStats) document.documentElement.classList.add("empty");
+        if (!hasStats && !localStorage.getItem("stats.seen")) document.documentElement.classList.add("fresh");
+      } catch {
+        document.documentElement.classList.add("empty");
+      }
+      applySettings(loadSettings());
+    </script>
   </head>
   <body>
+    <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(read-only)</span></div>
     <div id="list"></div>
-    <button class="plus" id="plus" aria-label="Add">+</button>
-    <input class="newbox" id="newbox" maxlength="80" enterkeyhint="done" hidden autocomplete="off" />
+    <button class="star" id="star" aria-label="Add a stat (hold for menu)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></svg>
+    </button>
+    <!-- first visit: ? and import, straight on the off-white page -->
+    <div class="intro" id="intro" hidden>
+      <button id="introHelp" aria-label="How to use"><span class="glyph">?</span></button>
+      <button id="introImport" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
+    </div>
+    <button id="viewBack" aria-label="Stop viewing" hidden><svg class="ic"><use href="#i-exit" /></svg></button>
+    <!-- tap the star: type a name, then pick ★ (counted) or clock (timed, starts straight away) -->
+    <div class="composer" id="composer" hidden>
+      <input class="newbox" id="newbox" maxlength="80" enterkeyhint="done" autocomplete="off" aria-label="Stat name" />
+      <div class="kinds">
+        <button id="makeCounter" aria-label="Counted stat"><svg class="fill" viewBox="0 0 24 24"><use href="#i-star" /></svg></button>
+        <button id="makeTimer" aria-label="Timed stat"><svg class="ic"><use href="#i-clock" /></svg></button>
+      </div>
+    </div>
 
-    <!-- hold a row; tap the big number to add, − to subtract, 0 for reset/delete; tap outside to close -->
+    <!-- icons, used via <use href="#..."> -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 17v3h16v-3" /></symbol>
+      <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 17v3h16v-3" /></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></symbol>
+      <symbol id="i-exit" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14" /></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z" /></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 10v12M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M17 14V2M9 18.12L10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /></symbol>
+    </svg>
+
+    <!-- hold a row; counted: tap the big number to add, − to subtract; timed: pause / play.
+         X for reset/delete; tap outside to close -->
     <dialog id="editDialog">
       <div id="editName"></div>
-      <button id="editCount" aria-label="Add one"></button>
+      <button id="editCount"></button>
       <div class="edit-row">
-        <button id="zeroBtn" aria-label="Reset or delete">0</button>
+        <button id="zeroBtn" aria-label="Reset or delete"><svg class="ic"><use href="#i-x" /></svg></button>
         <button id="minusBtn" aria-label="Subtract one">−</button>
+        <button id="pauseBtn" aria-label="Pause" hidden><svg class="ic"><use id="pauseIcon" href="#i-pause" /></svg></button>
       </div>
     </dialog>
 
-    <!-- tap the 0 -->
+    <!-- tap the X -->
     <dialog id="zeroDialog">
-      <div class="choices" id="choiceView">
-        <button id="resetBtn">reset</button>
-        <button id="deleteBtn">delete</button>
-        <button id="cancelBtn">cancel</button>
+      <div class="icons" id="choiceView">
+        <button id="resetBtn" aria-label="Reset"><svg class="ic"><use href="#i-reset" /></svg></button>
+        <button id="deleteBtn" class="danger" aria-label="Delete"><svg class="ic"><use href="#i-trash" /></svg></button>
+        <button id="cancelBtn" class="muted" aria-label="Back"><svg class="ic"><use href="#i-x" /></svg></button>
       </div>
       <!-- after picking reset or delete -->
       <div class="choices" id="confirmView" hidden>
         <div id="confirmText"></div>
-        <button id="yesBtn">yes</button>
-        <button id="noBtn">no</button>
+        <div class="icons">
+          <button id="yesBtn" class="danger" aria-label="Yes"><svg class="ic"><use href="#i-up" /></svg></button>
+          <button id="noBtn" class="muted" aria-label="No"><svg class="ic"><use href="#i-down" /></svg></button>
+        </div>
       </div>
     </dialog>
 
-    <!-- long-press the + -->
+    <!-- hold the star -->
     <dialog id="menuDialog">
-      <div class="stack">
-        <button id="exportBtn">export backup</button>
-        <button id="importBtn">import backup</button>
-        <button id="closeMenu">close</button>
+      <div class="icons">
+        <button id="importBtn" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
+        <button id="exportBtn" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
+        <button id="settingsBtn" aria-label="Settings"><span class="glyph">A</span></button>
+        <button id="helpBtn" aria-label="How to use"><span class="glyph">?</span></button>
       </div>
-      <input type="file" id="importFile" accept="application/json,.json" hidden />
+    </dialog>
+
+
+    <!-- menu → export -->
+    <dialog id="exportDialog">
+      <div class="icons" id="exportChoices">
+        <button id="exportOnly" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
+        <button id="exportView" class="pair" aria-label="Export read-only">
+          <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg>
+        </button>
+        <button id="exportClear" class="danger pair" aria-label="Export and clear">
+          <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-trash" /></svg>
+        </button>
+        <button id="exportCancel" class="muted" aria-label="Back"><svg class="ic"><use href="#i-x" /></svg></button>
+      </div>
+      <!-- after picking export & clear -->
+      <div class="choices" id="exportConfirm" hidden>
+        <div class="confirm-text">export, then delete all <b>stats</b> and <b>settings</b> from localStorage?</div>
+        <div class="icons">
+          <button id="exportYes" class="danger" aria-label="Yes"><svg class="ic"><use href="#i-up" /></svg></button>
+          <button id="exportNo" class="muted" aria-label="No"><svg class="ic"><use href="#i-down" /></svg></button>
+        </div>
+      </div>
+    </dialog>
+    <input type="file" id="importFile" accept="application/json,.json" hidden />
+
+    <dialog id="settingsDialog">
+      <div class="fonts" id="fontList"></div>
+      <div class="swatches" id="themeList"></div>
+      <button class="done" id="settingsDone">done</button>
+    </dialog>
+
+    <dialog id="helpDialog">
+      <!-- animated walkthrough, driven by runDemo() -->
+      <div class="demo" id="demo" aria-hidden="true">
+        <div class="d-row" id="dRow" hidden><span class="d-name" id="dName">demo</span><span class="d-count" id="dCount">0</span></div>
+        <div class="d-star" id="dStar"><svg viewBox="0 0 24 24"><use href="#i-star" /></svg></div>
+        <div class="d-compose" id="dBox" hidden>
+          <div class="d-typed"><span id="dTyped"></span><span class="d-caret"></span></div>
+          <div class="d-kinds">
+            <span id="dKStar"><svg class="d-fill" viewBox="0 0 24 24"><use href="#i-star" /></svg></span>
+            <span id="dKClock"><svg class="ic"><use href="#i-clock" /></svg></span>
+          </div>
+        </div>
+        <div class="d-pop" id="dPop">
+          <div class="d-name">demo</div>
+          <div class="d-big" id="dBig">3</div>
+          <div class="d-btns"><span id="dX"><svg class="ic"><use href="#i-x" /></svg></span><span id="dMinus">−</span><span id="dPause" hidden><svg class="ic"><use id="dPauseIcon" href="#i-pause" /></svg></span></div>
+        </div>
+        <div class="d-zero" id="dZero">
+          <span id="dReset"><svg class="ic"><use href="#i-reset" /></svg></span>
+          <span class="danger" id="dTrash"><svg class="ic"><use href="#i-trash" /></svg></span>
+          <span class="muted"><svg class="ic"><use href="#i-x" /></svg></span>
+        </div>
+        <div class="d-flash" id="dFlash"><svg class="ic"><use id="dFlashIcon" href="#i-reset" /></svg></div>
+        <div class="d-finger" id="dFinger">
+          <svg viewBox="0 0 24 24">
+            <!-- glove: index finger up, three curled fingers, thumb on the left, cuff at the wrist -->
+            <path d="M7.6 2.6a1.45 1.45 0 0 1 2.9 0V9.6a1.4 1.4 0 0 1 2.8 0v.7a1.4 1.4 0 0 1 2.8 0v.8a1.35 1.35 0 0 1 2.7 0V16c0 2-.7 3.5-2 4.6v2H9.4v-2c-.9-.7-1.6-1.5-2.3-2.5L3.7 14.6a1.45 1.45 0 0 1 2.2-1.9l1.7 1.8Z" />
+            <path d="M10.5 9.6v3M13.3 10.3v2.5M16.1 11.1v2.2M9.4 20.6h7.4" fill="none" />
+          </svg>
+        </div>
+      </div>
+
+      <p>Hold the <b>★</b> to open the menu.
+      All stats and settings are stored <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" target="_blank" rel="noopener">locally</a>, and can be exported/imported via JSON.</p>
+      <ul class="legend">
+        <li><svg class="ic"><use href="#i-import" /></svg>imports JSON</li>
+        <li><svg class="ic"><use href="#i-export" /></svg>exports JSON</li>
+        <li><span class="duo"><svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg></span>exports read-only JSON</li>
+        <li><b>A</b>settings</li>
+        <li><b>?</b>brings you back here</li>
+      </ul>
+
+      <p style="margin-top: 14px">Find out how to add this web page to your home screen
+        <a target="_blank" rel="noopener"
+           href="https://www.google.com/search?q=how+to+add+web+page+to+home+screen+in+%5Binsert+browser+name%5D+on+%5Bandroid%2Fios%5D+lol&num=10&sxsrf=AKL5yDix55REIPLrEZ73WxaxXE76lv39Gg%3A1794966145954">here</a>.</p>
+
+      <button class="done" id="helpDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
     </dialog>
 
     <script>
-      const KEY = "tally.v1";
+      const KEY = "stats.v1";
+      const OLD_KEY = "tally.v1"; // data saved before the rename
+      const SEEN_KEY = "stats.seen";
       const $ = (id) => document.getElementById(id);
 
-      // item: { id, name, count, log: [timestamps of each tap] }
-      let items = load();
+      // counted stat: { id, name, kind: "counter", created, count, highest, deleted?, log }
+      // timed stat:   { id, name, kind: "timer", created, elapsed, since, highest, deleted?, log }
+      //   elapsed = ms banked from earlier runs, since = when the current run started (null = paused),
+      //   highest = longest it has run, in ms
+      // the log only holds resets and deletes; deleted stats are kept (hidden) so their history survives in backups
+      let stats = load();
 
       function load() {
         try {
-          return JSON.parse(localStorage.getItem(KEY)) || [];
+          const raw = localStorage.getItem(KEY) ?? localStorage.getItem(OLD_KEY);
+          const data = JSON.parse(raw) || [];
+          return Array.isArray(data) ? data.map(normalize) : [];
         } catch {
           return [];
         }
       }
 
+      // accepts any saved/imported shape, including older versions that logged every tap
+      function normalize(s) {
+        const timer = s.kind === "timer";
+        const all = (Array.isArray(s.log) ? s.log : [])
+          .map((e, i) =>
+            typeof e === "number"
+              ? { action: "add", time: new Date(e).toISOString(), count: i + 1 }
+              : e && typeof e === "object" && e.action
+                ? timer
+                  ? { action: String(e.action), time: String(e.time || ""), elapsed: Number(e.elapsed) || 0 }
+                  : { action: String(e.action), time: String(e.time || ""), count: Number(e.count) || 0 }
+                : null
+          )
+          .filter(Boolean);
+        const created = s.created ? String(s.created) : (all[0] && all[0].time) || new Date().toISOString();
+        const log = all.filter((e) => e.action === "reset" || e.action === "delete");
+        const stat = { id: s.id || String(Math.random()), name: String(s.name || "untitled"), kind: timer ? "timer" : "counter", created };
+        if (timer) {
+          stat.elapsed = Math.max(0, Number(s.elapsed) || 0);
+          stat.since = s.since && !isNaN(Date.parse(s.since)) ? String(s.since) : null;
+          stat.highest = Math.max(Number(s.highest) || 0, stat.elapsed);
+        } else {
+          stat.count = Math.max(0, Number(s.count) || 0);
+          // older files: work out highest from the full tap history before dropping it
+          stat.highest = Math.max(Number(s.highest) || 0, stat.count, ...all.map((e) => e.count || 0));
+        }
+        if (s.deleted) stat.deleted = String(s.deleted);
+        stat.log = log;
+        return stat;
+      }
+
+      // a timed stat's running total in ms (banked time + the current run)
+      const timeOf = (s) => s.elapsed + (s.since ? Math.max(0, Date.now() - Date.parse(s.since)) : 0);
+
+      // 45s · 12m 5s · 1h 30m · 3d 6h · 1y 12d — always rounded down, never "2d 30h" or "1h 75m"
+      function fmtTime(ms) {
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        if (m < 60) return `${m}m ${s % 60}s`;
+        const h = Math.floor(m / 60);
+        if (h < 24) return `${h}h ${m % 60}m`;
+        const d = Math.floor(s / 86400);
+        if (d < 365) return `${d}d ${Math.floor((s % 86400) / 3600)}h`;
+        return `${Math.floor(d / 365)}y ${d % 365}d`;
+      }
+
+      // what a stat shows: the count, or the formatted time
+      const valueOf = (s) => (s.kind === "timer" ? fmtTime(timeOf(s)) : s.count);
+
+      const visible = () => stats.filter((s) => !s.deleted);
+
+      // every change goes through here so the log, count and highest stay in step
+      function record(stat, action) {
+        if (stat.kind === "timer") {
+          const time = new Date().toISOString();
+          const total = timeOf(stat);
+          stat.highest = Math.max(stat.highest, total);
+          if (action === "pause") {
+            stat.elapsed = total;
+            stat.since = null;
+          } else if (action === "resume") {
+            stat.since = time;
+          } else if (action === "reset") {
+            stat.elapsed = 0;
+            if (stat.since) stat.since = time; // keeps running from zero if it was running
+          } else if (action === "delete") {
+            stat.elapsed = total;
+            stat.since = null;
+            stat.deleted = time;
+          }
+          // pausing / resuming isn't logged, only resets and deletes
+          if (action === "reset" || action === "delete") stat.log.push({ action, time, elapsed: stat.elapsed });
+          save();
+          return;
+        }
+        if (action === "add") stat.count++;
+        else if (action === "subtract") stat.count--;
+        else if (action === "reset") stat.count = 0;
+        const time = new Date().toISOString();
+        if (action === "delete") stat.deleted = time;
+        stat.highest = Math.max(stat.highest, stat.count);
+        // taps (add / subtract) only change the number; resets and deletes are logged
+        if (action === "reset" || action === "delete") stat.log.push({ action, time, count: stat.count });
+        save();
+      }
+
       function save() {
         try {
-          localStorage.setItem(KEY, JSON.stringify(items));
+          localStorage.setItem(KEY, JSON.stringify(stats));
         } catch {}
+      }
+
+      // first-timers see an i instead of the star until they've read the guide or imported
+      function isNew() {
+        try {
+          return !localStorage.getItem(SEEN_KEY) && visible().length === 0;
+        } catch {
+          return false;
+        }
+      }
+      function markSeen() {
+        try {
+          localStorage.setItem(SEEN_KEY, "1");
+        } catch {}
+        $("intro").hidden = true;
+        $("star").hidden = false;
+        document.documentElement.classList.remove("fresh"); // off-white → dark
+        updateBar();
       }
 
       // calls onLong after holding ~0.5s; swallows the click that follows
@@ -242,84 +812,164 @@
         }, true);
       }
 
+      function show(dialog) {
+        dialog.showModal();
+        document.activeElement.blur(); // no focus ring on the first button
+        if (dialog.id === "helpDialog") runDemo();
+      }
+
+      // stats from a file being looked at (read-only); null = showing your own
+      let viewing = null;
+
+      // running timers tick on screen (the list and the open popup)
+      let timerEls = [];
+      setInterval(() => {
+        for (const [el, stat] of timerEls) if (stat.since) el.textContent = valueOf(stat);
+        if (editing && editing.kind === "timer" && editing.since) $("editCount").textContent = valueOf(editing);
+      }, 500);
+
       function render() {
         const list = $("list");
         list.innerHTML = "";
-        document.body.classList.toggle("empty", items.length === 0);
+        const shown = viewing ? viewing.filter((s) => !s.deleted) : visible();
+        document.documentElement.classList.toggle("empty", shown.length === 0);
+        document.body.classList.toggle("viewing", !!viewing);
+        $("viewLabel").hidden = !viewing;
+        $("viewBack").hidden = !viewing;
+        if (viewing) {
+          $("star").hidden = true;
+          $("intro").hidden = true;
+        }
+        // the off-white first-visit page pauses while viewing someone's file
+        document.documentElement.classList.toggle("fresh", !viewing && isNew());
+        updateBar();
 
-        for (const item of items) {
+        timerEls = [];
+        for (const stat of shown) {
           const row = document.createElement("div");
           row.className = "row";
           const name = document.createElement("span");
           name.className = "name";
-          name.textContent = item.name;
-          const count = document.createElement("button");
+          name.textContent = stat.name;
+          const timer = stat.kind === "timer";
+          const count = document.createElement(viewing || timer ? "span" : "button");
           count.className = "count";
-          count.textContent = item.count;
-          count.setAttribute("aria-label", `Add one to ${item.name}`);
+          count.textContent = valueOf(stat);
+          if (timer) {
+            count.classList.add("timer");
+            count.classList.toggle("paused", !stat.since);
+            timerEls.push([count, stat]);
+          }
           row.append(name, count);
+          list.append(row);
+          if (viewing) continue; // look, don't touch
+          if (timer) {
+            // hold: popup with pause / play, reset and delete
+            onLongPress(row, () => openEdit(stat));
+            continue;
+          }
+          count.setAttribute("aria-label", `Add one to ${stat.name}`);
 
           // tap the number: +1
           count.addEventListener("click", () => {
-            item.count++;
-            item.log.push(Date.now());
-            save();
-            count.textContent = item.count;
+            record(stat, "add");
+            count.textContent = stat.count;
             if (navigator.vibrate) navigator.vibrate(10);
           });
           // hold anywhere on the row: popup with −, reset and delete
-          onLongPress(row, () => openEdit(item));
-
-          list.append(row);
+          onLongPress(row, () => openEdit(stat));
         }
       }
 
-      // + reveals the input box
-      $("plus").addEventListener("click", () => {
-        $("plus").hidden = true;
-        $("newbox").hidden = false;
+      $("viewBack").onclick = () => {
+        viewing = null;
+        const first = isNew();
+        $("star").hidden = first;
+        $("intro").hidden = !first;
+        render();
+      };
+
+      // first visit
+      $("introHelp").onclick = () => show($("helpDialog"));
+      $("introImport").onclick = () => $("importFile").click();
+
+      // star opens the name field (just a cursor); holding it opens the menu
+      $("star").addEventListener("click", () => {
+        $("star").hidden = true;
+        $("composer").hidden = false;
         $("newbox").focus();
       });
-      onLongPress($("plus"), () => $("menuDialog").showModal());
+      onLongPress($("star"), () => show($("menuDialog")));
 
       function closeNew() {
         $("newbox").value = "";
-        $("newbox").hidden = true;
-        $("plus").hidden = false;
+        $("composer").hidden = true;
+        $("star").hidden = false;
       }
-      $("newbox").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") $("newbox").blur();
-        if (e.key === "Escape") { $("newbox").value = ""; $("newbox").blur(); }
-      });
-      $("newbox").addEventListener("blur", () => {
+      // ★ = counted stat, clock = timed stat (starts counting now)
+      function create(kind) {
         const name = $("newbox").value.trim();
-        if (name) {
-          items.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), name, count: 0, log: [] });
-          save();
-          render();
+        if (!name) {
+          $("newbox").focus();
+          return;
         }
+        const now = new Date().toISOString();
+        const base = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), name, kind, created: now };
+        stats.push(
+          kind === "timer"
+            ? { ...base, elapsed: 0, since: now, highest: 0, log: [] }
+            : { ...base, count: 0, highest: 0, log: [] }
+        );
+        save();
+        render();
         closeNew();
+      }
+      $("makeCounter").onclick = () => create("counter");
+      $("makeTimer").onclick = () => create("timer");
+      // tapping ★ / clock shouldn't steal focus (keeps the keyboard up on phones)
+      for (const b of [$("makeCounter"), $("makeTimer")]) b.addEventListener("pointerdown", (e) => e.preventDefault());
+      $("newbox").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") $("newbox").blur(); // just closes the keyboard; pick ★ or clock next
+        if (e.key === "Escape") closeNew();
+      });
+      // tapping anywhere else cancels
+      document.addEventListener("pointerdown", (e) => {
+        if (!$("composer").hidden && !$("composer").contains(e.target)) closeNew();
       });
 
-      // popup for one tally: tap the number to add, − to subtract
+      // popup for one stat. counted: tap the number to add, − to subtract. timed: pause / play
       let editing = null;
-      function openEdit(item) {
-        editing = item;
-        $("editName").textContent = item.name;
-        $("editCount").textContent = item.count;
-        $("editDialog").showModal();
-        document.activeElement.blur(); // no focus ring on the first button
-      }
-      function change(delta) {
-        if (!editing) return;
-        if (delta > 0) {
-          editing.count++;
-          editing.log.push(Date.now());
-        } else if (editing.count > 0) {
-          editing.count--;
-          editing.log.pop();
+      function showEditValue() {
+        const timer = editing.kind === "timer";
+        $("editCount").textContent = valueOf(editing);
+        $("editCount").classList.toggle("timer", timer);
+        $("editCount").classList.toggle("paused", timer && !editing.since);
+        $("editCount").setAttribute("aria-label", timer ? "Time so far" : "Add one");
+        $("minusBtn").hidden = timer;
+        $("pauseBtn").hidden = !timer;
+        if (timer) {
+          $("pauseIcon").setAttribute("href", editing.since ? "#i-pause" : "#i-play");
+          $("pauseBtn").setAttribute("aria-label", editing.since ? "Pause" : "Resume");
         }
-        save();
+      }
+      function openEdit(stat) {
+        editing = stat;
+        $("editName").textContent = stat.name;
+        showEditValue();
+        show($("editDialog"));
+      }
+      $("pauseBtn").onclick = () => {
+        if (!editing || editing.kind !== "timer") return;
+        record(editing, editing.since ? "pause" : "resume");
+        render();
+        showEditValue();
+        if (navigator.vibrate) navigator.vibrate(10);
+      };
+      function change(delta) {
+        if (!editing || editing.kind === "timer") return;
+        if (delta > 0) record(editing, "add");
+        else if (editing.count > 0) record(editing, "subtract");
+        else return;
         render(); // keep the list behind the popup in sync
         $("editCount").textContent = editing.count;
         if (navigator.vibrate) navigator.vibrate(10);
@@ -333,14 +983,12 @@
         pending = null;
         $("choiceView").hidden = false;
         $("confirmView").hidden = true;
-        $("zeroDialog").showModal();
-        document.activeElement.blur();
+        show($("zeroDialog"));
       };
       function ask(action) {
         if (!editing) return;
         pending = action;
         $("confirmText").textContent = `${action} "${editing.name}"?`;
-        $("yesBtn").classList.toggle("danger", action === "delete");
         $("choiceView").hidden = true;
         $("confirmView").hidden = false;
         document.activeElement.blur();
@@ -351,26 +999,28 @@
       $("noBtn").onclick = () => $("zeroDialog").close();
       $("yesBtn").onclick = () => {
         if (editing && pending === "reset") {
-          editing.count = 0;
-          editing.log = [];
-          save();
+          record(editing, "reset");
           render();
-          $("editCount").textContent = 0;
+          showEditValue();
           $("zeroDialog").close();
         } else if (editing && pending === "delete") {
-          items = items.filter((i) => i !== editing);
-          save();
+          record(editing, "delete");
           render();
           $("zeroDialog").close();
           $("editDialog").close();
         }
       };
+      // full screen, so "outside" is any empty space: anything that isn't a button goes back
+      $("editDialog").addEventListener("click", (e) => {
+        if (!e.target.closest("button")) $("editDialog").close();
+      });
       $("editDialog").onclose = () => {
         editing = null;
         render();
       };
+
       // tapping outside a dialog closes it
-      for (const d of [$("editDialog"), $("zeroDialog"), $("menuDialog")]) {
+      for (const d of document.querySelectorAll("dialog")) {
         d.addEventListener("click", (e) => {
           if (e.target !== d) return;
           const r = d.getBoundingClientRect();
@@ -379,50 +1029,450 @@
         });
       }
 
-      $("closeMenu").onclick = () => $("menuDialog").close();
+      // how to use
+      $("helpBtn").onclick = () => {
+        $("menuDialog").close();
+        show($("helpDialog"));
+        $("helpDialog").scrollTop = 0;
+      };
+      $("helpDone").onclick = () => $("helpDialog").close();
+      $("helpDialog").addEventListener("close", markSeen);
 
-      $("exportBtn").onclick = async () => {
-        const json = JSON.stringify(items, null, 2);
-        const filename = `tally-${new Date().toISOString().slice(0, 10)}.json`;
+      // the walkthrough loops while the guide is open; closing it (or reopening) stops the old loop
+      let demoRun = 0;
+      async function runDemo() {
+        const run = ++demoRun;
+        const wait = (ms) =>
+          new Promise((ok, stop) => setTimeout(() => (run === demoRun && $("helpDialog").open ? ok() : stop()), ms));
+        const demo = $("demo");
+        const finger = $("dFinger");
+        const moveTo = async (el) => {
+          const a = demo.getBoundingClientRect();
+          const b = el.getBoundingClientRect();
+          const appear = !finger.classList.contains("on");
+          finger.style.transition = appear ? "none" : "";
+          finger.style.transform = `translate(${b.left - a.left + b.width / 2}px, ${b.top - a.top + b.height / 2}px)`;
+          if (appear) {
+            await wait(30);
+            finger.style.transition = "";
+            finger.classList.add("on");
+            await wait(300);
+          } else {
+            await wait(550);
+          }
+        };
+        // move to an empty point, given as a fraction of the demo's width / height
+        const moveToSpot = async (fx, fy) => {
+          const a = demo.getBoundingClientRect();
+          finger.style.transform = `translate(${a.width * fx}px, ${a.height * fy}px)`;
+          await wait(550);
+        };
+        const tap = async () => {
+          finger.classList.add("press");
+          await wait(130);
+          finger.classList.remove("press");
+          await wait(120);
+        };
+        const bump = (el) => {
+          el.classList.remove("bump");
+          void el.offsetWidth; // restart the animation
+          el.classList.add("bump");
+        };
+        const set = (id, n) => { $(id).textContent = n; bump($(id)); };
+        const flash = (icon, red) => {
+          const f = $("dFlash");
+          $("dFlashIcon").setAttribute("href", icon);
+          f.classList.toggle("danger", red);
+          f.classList.remove("go");
+          void f.offsetWidth;
+          f.classList.add("go");
+        };
+        const poof = (el) => {
+          const a = demo.getBoundingClientRect();
+          const b = el.getBoundingClientRect();
+          const cx = b.left - a.left + b.width / 2;
+          const cy = b.top - a.top + b.height / 2;
+          el.classList.add("poof");
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const s = document.createElement("span");
+            s.className = "d-line";
+            s.style.left = `${cx + Math.cos(angle) * 22}px`;
+            s.style.top = `${cy + Math.sin(angle) * 16}px`;
+            s.style.setProperty("--a", `${angle + Math.PI / 2}rad`); // point outward
+            s.style.setProperty("--dx", `${Math.cos(angle) * 18}px`);
+            s.style.setProperty("--dy", `${Math.sin(angle) * 18}px`);
+            demo.append(s);
+            setTimeout(() => s.remove(), 500);
+          }
+        };
+        // the demo timer: ticks one second at a time while running
+        let tSecs = 0;
+        let tRunning = false;
+        const ticker = setInterval(() => {
+          if (run !== demoRun || !$("helpDialog").open) return clearInterval(ticker);
+          if (!tRunning) return;
+          tSecs++;
+          showTime(`${tSecs}s`);
+        }, 1000);
+        const swell = async (id, zero) => {
+          const el = $(id);
+          el.classList.remove("swell", "bump");
+          void el.offsetWidth;
+          el.classList.add("swell");
+          await wait(230); // at its biggest
+          tSecs = 0;
+          el.textContent = zero;
+          $("dCount").textContent = zero;
+          await wait(300);
+          el.classList.remove("swell");
+        };
+        // shared steps: open the name field, type, then tap ★ or the clock
+        const addStat = async (kindEl) => {
+          await moveTo($("dStar"));
+          await tap();
+          $("dStar").hidden = true;
+          $("dTyped").textContent = "";
+          $("dBox").hidden = false;
+          finger.classList.remove("on");
+          await wait(300);
+          for (const ch of "demo") {
+            $("dTyped").textContent += ch;
+            await wait(110);
+          }
+          await wait(350);
+          await moveTo(kindEl);
+          await tap();
+          $("dBox").hidden = true;
+          $("dStar").hidden = false;
+          $("dRow").hidden = false;
+        };
+        const hold = async () => {
+          await moveTo($("dName"));
+          finger.classList.add("hold");
+          await wait(750);
+          finger.classList.remove("hold");
+          $("dPop").classList.add("on");
+          await wait(700);
+        };
+        const resetAndDelete = async (zero) => {
+          // X → reset: the value swells and lands on zero
+          await moveTo($("dX"));
+          await tap();
+          $("dZero").classList.add("on");
+          await wait(500);
+          await moveTo($("dReset"));
+          await tap();
+          $("dZero").classList.remove("on");
+          await wait(150);
+          await swell("dBig", zero);
+          await wait(800);
+          // X → delete: red flash, popup closes, the stat goes poof
+          await moveTo($("dX"));
+          await tap();
+          $("dZero").classList.add("on");
+          await wait(500);
+          await moveTo($("dTrash"));
+          await tap();
+          tRunning = false;
+          $("dZero").classList.remove("on");
+          flash("#i-trash", true);
+          await wait(350);
+          $("dPop").classList.remove("on");
+          finger.classList.remove("on");
+          await wait(300);
+          poof($("dRow"));
+          await wait(600);
+          $("dRow").hidden = true;
+          $("dRow").classList.remove("poof");
+        };
+        // switch the mock between a counted and a timed stat
+        const asTimer = (on) => {
+          $("dCount").classList.toggle("timer", on);
+          $("dBig").classList.toggle("timer", on);
+          $("dMinus").hidden = on;
+          $("dPause").hidden = !on;
+          $("dPauseIcon").setAttribute("href", "#i-pause");
+          for (const id of ["dCount", "dBig"]) $(id).classList.remove("paused");
+        };
+        const showTime = (t) => {
+          $("dCount").textContent = t;
+          $("dBig").textContent = t;
+        };
+
+        try {
+          while (true) {
+            // fresh scene
+            demo.classList.remove("fade");
+            $("dRow").hidden = true;
+            $("dRow").classList.remove("poof");
+            $("dFlash").classList.remove("go");
+            $("dBig").classList.remove("swell");
+            $("dBox").hidden = true;
+            $("dStar").hidden = false;
+            $("dTyped").textContent = "";
+            $("dCount").textContent = 0;
+            $("dPop").classList.remove("on");
+            $("dZero").classList.remove("on");
+            finger.classList.remove("on", "press", "hold");
+            tRunning = false;
+            asTimer(false);
+            await wait(700);
+
+            // ── counted stat ──
+            await addStat($("dKStar"));
+            await wait(600);
+
+            // tap the number a few times
+            await moveTo($("dCount"));
+            for (let n = 1; n <= 3; n++) {
+              await tap();
+              set("dCount", n);
+              await wait(180);
+            }
+            await wait(400);
+
+            // hold to open, − takes one away
+            $("dBig").textContent = 3;
+            await hold();
+            await moveTo($("dMinus"));
+            await tap();
+            set("dBig", 2);
+            $("dCount").textContent = 2;
+            await wait(700);
+
+            await resetAndDelete(0);
+            await wait(900);
+
+            // ── timed stat ──
+            asTimer(true);
+            tSecs = 0;
+            showTime("0s");
+            await addStat($("dKClock"));
+            tRunning = true; // starts counting the moment the clock is tapped
+            finger.classList.remove("on");
+            await wait(2600);
+
+            // hold to open: still ticking. pause: time stops and greys out. play: ticks on
+            await hold();
+            await wait(900);
+            await moveTo($("dPause"));
+            await tap();
+            tRunning = false;
+            $("dPauseIcon").setAttribute("href", "#i-play");
+            $("dCount").classList.add("paused");
+            $("dBig").classList.add("paused");
+            await wait(2200);
+            await tap();
+            tRunning = true;
+            $("dPauseIcon").setAttribute("href", "#i-pause");
+            $("dCount").classList.remove("paused");
+            $("dBig").classList.remove("paused");
+            await wait(2100);
+
+            // tap any empty space on the stat page to go back; it keeps ticking in the list
+            await moveToSpot(0.22, 0.2);
+            await tap();
+            $("dPop").classList.remove("on");
+            await wait(500);
+            finger.classList.remove("on");
+            await wait(1300);
+
+            demo.classList.add("fade");
+            await wait(500);
+          }
+        } catch {
+          // stopped: the guide was closed or reopened
+        }
+      }
+
+      // export: just export, or export & clear (asks yes / no first)
+      $("exportBtn").onclick = () => {
+        $("menuDialog").close();
+        $("exportChoices").hidden = false;
+        $("exportConfirm").hidden = true;
+        show($("exportDialog"));
+      };
+      // cancel / no step back to the menu instead of closing everything
+      const backToMenu = () => {
+        $("exportDialog").close();
+        show($("menuDialog"));
+      };
+      $("exportCancel").onclick = backToMenu;
+      $("exportNo").onclick = backToMenu;
+      $("exportClear").onclick = () => {
+        $("exportChoices").hidden = true;
+        $("exportConfirm").hidden = false;
+        document.activeElement.blur();
+      };
+      $("exportOnly").onclick = () => {
+        $("exportDialog").close();
+        exportBackup();
+      };
+      $("exportView").onclick = () => {
+        $("exportDialog").close();
+        exportBackup(true);
+      };
+
+      // tamper seal: a fingerprint of the file's contents mixed with a key only this app knows.
+      // edit anything in the file and the seal stops matching, so it can only be viewed.
+      // (it's a deterrent, not real security: the key is in this public source code.)
+      const SEAL_KEY = "stats·k7Qx!m2Lp9#vR4tZ·seal"; // cheeky lol
+      function cyrb53(str, seed) {
+        let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+        for (let i = 0; i < str.length; i++) {
+          const ch = str.charCodeAt(i);
+          h1 = Math.imul(h1 ^ ch, 2654435761);
+          h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
+      }
+      function sealOf(file) {
+        const body = SEAL_KEY + JSON.stringify([file.readOnly === true, file.exported, file.stats]);
+        return cyrb53(body, 1) + cyrb53(body, 2);
+      }
+      $("exportYes").onclick = async () => {
+        $("exportDialog").close();
+        // only wipe once the file is actually out (not if the share sheet was cancelled)
+        if (!(await exportBackup())) return;
+        try {
+          for (const k of [KEY, OLD_KEY, SEEN_KEY, SETTINGS_KEY, OLD_SETTINGS_KEY]) localStorage.removeItem(k);
+        } catch {}
+        setTimeout(() => location.reload(), 1000); // back to a fresh first-visit state, after the download has started
+      };
+
+      // returns true once the file has been shared or downloaded
+      async function exportBackup(readOnly = false) {
+        // JSON has no comments, so the explanation lives in a "_readme" field (ignored on import)
+        const backup = {
+          _readme: {
+            about: readOnly
+              ? "Read-only copy from the stats app. Importing it only lets you look at these stats."
+              : "Backup from the stats app. Import it from the menu (hold the star) to restore.",
+            seal: "Fingerprint of this file. If anything below is edited, the app will only open it as read-only.",
+            readOnly: "true = this file can only be viewed, never loaded as your own stats.",
+            exported: "When this file was made.",
+            stats: "Every stat, including deleted ones (kept so their history isn't lost).",
+            id: "Unique id for the stat.",
+            name: "What you're counting.",
+            kind: "counter = tap to count, timer = counts time on its own.",
+            created: "When the stat was made (UTC).",
+            count: "Counters only: the current number.",
+            elapsed: "Timers only: milliseconds counted in earlier runs (the current run is on top of this).",
+            since: "Timers only: when the current run started (UTC), or null if paused.",
+            highest: "Counters: the highest the count has been. Timers: the longest it has run, in milliseconds.",
+            deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
+            log: "Resets and deletes, oldest first. action = reset | delete, time = when it happened (UTC), count (counters) or elapsed (timers) = the value right after.",
+          },
+          seal: "",
+          readOnly,
+          exported: new Date().toISOString(),
+          stats,
+        };
+        // round-trip so the seal is computed on exactly what the importer will read back
+        backup.seal = sealOf(JSON.parse(JSON.stringify(backup)));
+        const json = JSON.stringify(backup, null, 2);
+        // local date and time, e.g. stats-2026-11-18_14-05-32.json (no colons: not allowed in filenames)
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+        const filename = `stats-${readOnly ? "view-" : ""}${stamp}.json`;
         const file = new File([json], filename, { type: "application/json" });
         // share sheet works best on phones (save to Files, email, etc.)
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({ files: [file], title: filename });
-            return;
+            return true;
           } catch (err) {
-            if (err.name === "AbortError") return;
+            if (err.name === "AbortError") return false;
           }
         }
         const a = document.createElement("a");
         a.href = URL.createObjectURL(file);
         a.download = filename;
         a.click();
-        URL.revokeObjectURL(a.href);
-      };
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        return true;
+      }
 
-      $("importBtn").onclick = () => $("importFile").click();
+      // import: the file decides. an intact normal backup loads as yours;
+      // a read-only copy, an edited file or an unsealed one opens in viewing mode
+      $("importBtn").onclick = () => {
+        $("menuDialog").close();
+        $("importFile").click();
+      };
       $("importFile").onchange = async () => {
         const file = $("importFile").files[0];
         $("importFile").value = "";
         if (!file) return;
         try {
-          const data = JSON.parse(await file.text());
+          const parsed = JSON.parse(await file.text());
+          // new backups are { _readme, exported, stats }; old ones are a bare array
+          const data = Array.isArray(parsed) ? parsed : parsed && parsed.stats;
           if (!Array.isArray(data)) throw new Error();
-          if (!confirm(`Replace current tallies with ${data.length} item(s) from the file?`)) return;
-          items = data.map((i) => ({
-            id: i.id || String(Math.random()),
-            name: String(i.name || "untitled"),
-            count: Number(i.count) || 0,
-            log: Array.isArray(i.log) ? i.log : [],
-          }));
+          const incoming = data.map(normalize);
+          // only an untouched, sealed, non-read-only file may replace your stats
+          const intact = !Array.isArray(parsed) && typeof parsed.seal === "string" && parsed.seal === sealOf(parsed);
+          const locked = !intact || parsed.readOnly === true;
+          if (locked) {
+            viewing = incoming; // never saved, gone when you go back
+            $("viewNote").textContent = intact ? "(read-only)" : "(edited · read-only)";
+            render();
+            return;
+          }
+          const shown = incoming.filter((s) => !s.deleted).length;
+          if (visible().length && !confirm(`Replace your current stats with ${shown} stat(s) from the file?`)) return;
+          stats = incoming;
           save();
           render();
-          $("menuDialog").close();
+          markSeen();
         } catch {
-          alert("That file doesn't look like a tally backup.");
+          alert("That file doesn't look like a stats backup.");
         }
       };
+
+      // settings
+      let settings = loadSettings();
+      function saveSettings() {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch {}
+        applySettings(settings);
+        renderSettings();
+      }
+      function renderSettings() {
+        const fonts = $("fontList");
+        fonts.innerHTML = "";
+        for (const [key, f] of Object.entries(FONTS)) {
+          const b = document.createElement("button");
+          b.textContent = f.label;
+          b.style.fontFamily = f.css;
+          b.classList.toggle("on", key === settings.font);
+          b.onclick = () => { settings.font = key; saveSettings(); };
+          fonts.append(b);
+        }
+        const themes = $("themeList");
+        themes.innerHTML = "";
+        for (const [key, t] of Object.entries(THEMES)) {
+          const b = document.createElement("button");
+          b.textContent = "★";
+          b.style.background = t.bg;
+          b.style.color = t.fg;
+          b.setAttribute("aria-label", key);
+          b.title = key;
+          b.classList.toggle("on", key === settings.theme);
+          b.onclick = () => { settings.theme = key; saveSettings(); };
+          themes.append(b);
+        }
+      }
+      $("settingsBtn").onclick = () => {
+        $("menuDialog").close();
+        renderSettings();
+        show($("settingsDialog"));
+      };
+      $("settingsDone").onclick = () => $("settingsDialog").close();
 
       // ask the browser not to evict our data
       if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
@@ -431,6 +1481,10 @@
         navigator.serviceWorker.register("sw.js").catch(() => {});
       }
 
+      if (isNew()) {
+        $("star").hidden = true;
+        $("intro").hidden = false;
+      }
       render();
     </script>
   </body>

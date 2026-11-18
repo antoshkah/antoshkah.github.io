@@ -1,6 +1,6 @@
 {
-  "name": "tally",
-  "short_name": "tally",
+  "name": "stats",
+  "short_name": "stats",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
