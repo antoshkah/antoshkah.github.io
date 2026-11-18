@@ -1,7 +1,7 @@
 // Offline support: serve from cache, refresh cache in the background.
 // Bump VERSION when you change the app files.
-const VERSION = "stats-v54";
-const FILES = ["./", "index.html", "style.css", "app.js", "demo.js", "settings.js", "welcome.js", "start.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "../fonts/ia-writer-mono-latin-400-normal.ttf", "../fonts/ia-writer-mono-latin-700-normal.ttf", "../fonts/ia-writer-mono-latin-400-italic.ttf"];
+const VERSION = "stats-v56";
+const FILES = ["./", "index.html", "style.css", "app.js", "demo.js", "settings.js", "welcome.js", "start.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "../fonts/ia-writer-mono-latin-400-normal.ttf", "../fonts/ia-writer-mono-latin-700-normal.ttf", "../fonts/ia-writer-mono-latin-400-italic.ttf"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)));
