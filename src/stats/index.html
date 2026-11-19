@@ -153,6 +153,8 @@
         <button id="resetBtn" aria-label="Reset"><svg class="ic"><use href="#i-reset" /></svg></button>
         <button id="deleteBtn" class="danger" aria-label="Delete"><svg class="ic"><use href="#i-trash" /></svg></button>
         <button id="minusBtn" aria-label="Subtract one">−</button>
+        <!-- timed stats only: add time by hand -->
+        <button id="addTimeBtn" aria-label="Add time" hidden>+</button>
         <!-- only on a deleted stat's page -->
         <button id="restoreBtn" aria-label="Restore" hidden><svg class="ic"><use href="#i-restore" /></svg></button>
         <button id="purgeBtn" class="danger" aria-label="Delete permanently" hidden><svg class="ic"><use href="#i-trash" /></svg></button>
@@ -166,6 +168,22 @@
         <div id="editDeleted" hidden></div>
         <!-- show logs: resets / deletes / restores, newest first -->
         <ul id="editLog" class="edit-log" hidden></ul>
+      </div>
+    </dialog>
+
+    <!-- timed stat → +: add time by hand (e.g. forgot to start "sleep" last night). hours, minutes, seconds only -->
+    <dialog id="addTimeDialog" class="page">
+      <div class="choices">
+        <div class="confirm-text" id="addTimeText"></div>
+        <div class="hms">
+          <label><input id="addH" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Hours" /><span>h</span></label>
+          <label><input id="addM" type="number" inputmode="numeric" min="0" max="59" placeholder="0" aria-label="Minutes" /><span>m</span></label>
+          <label><input id="addS" type="number" inputmode="numeric" min="0" max="59" placeholder="0" aria-label="Seconds" /><span>s</span></label>
+        </div>
+        <div class="icons">
+          <button id="addTimeYes" aria-label="Add"><svg class="ic"><use href="#i-plus" /></svg></button>
+          <button id="addTimeNo" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
+        </div>
       </div>
     </dialog>
 

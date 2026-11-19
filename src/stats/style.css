@@ -608,3 +608,29 @@ body.viewing .row .count { cursor: default; }
 }
 .how a { color: inherit; text-underline-offset: 3px; }
 .tip-ic { width: 1.15em; height: 1.15em; vertical-align: -0.2em; }
+
+/* add time (timed stats): three small boxes, h m s, in a row */
+.hms { display: flex; justify-content: center; gap: 22px; margin: 10px 0 20px; }
+.hms label { display: flex; align-items: baseline; gap: 3px; color: var(--muted); font-size: 1.4rem; }
+.hms input {
+  width: 1.1ch; /* one digit wide to start; widens to two as you type (updateAddTime), so the row stays centred */
+  transition: width 0.12s ease;
+  font: inherit;
+  font-size: 40px; /* big and 16px+: no iOS zoom */
+  text-align: right;
+  color: var(--fg);
+  background: transparent;
+  border: 0;
+  border-bottom: 0; /* no line: just the number */
+  border-radius: 0;
+  padding: 2px 0;
+  outline: none;
+  -moz-appearance: textfield;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.hms input::-webkit-outer-spin-button, .hms input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.hms input::placeholder { color: var(--muted); }
+/* 👍 dim until there's something to add */
+#addTimeYes.dim { opacity: 0.3; pointer-events: none; }
+#addTimeDialog .icons { justify-content: center; gap: 36px; }

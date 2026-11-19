@@ -32,14 +32,15 @@ function normalize(s) {
         ? { action: "add", time: new Date(e).toISOString(), count: i + 1 }
         : e && typeof e === "object" && e.action
           ? timer
-            ? { action: String(e.action), time: String(e.time || ""), elapsed: Number(e.elapsed) || 0 }
+            ? { action: String(e.action), time: String(e.time || ""), elapsed: Number(e.elapsed) || 0, ...(e.action === "addtime" ? { added: Math.max(0, Number(e.added) || 0) } : {}) }
             : { action: String(e.action), time: String(e.time || ""), count: Number(e.count) || 0 }
           : null
     )
     .filter(Boolean);
   const created = s.created ? String(s.created) : (all[0] && all[0].time) || new Date().toISOString();
   // kept: resets, deletes and restores (taps and pauses aren't logged)
-  const log = all.filter((e) => e.action === "reset" || e.action === "delete" || e.action === "restore");
+  // (timed stats also keep "addtime": time added by hand)
+  const log = all.filter((e) => ["reset", "delete", "restore"].includes(e.action) || (timer && e.action === "addtime"));
   const stat = { id: s.id || String(Math.random()), name: String(s.name || "untitled"), kind: timer ? "timer" : "counter", created };
   if (timer) {
     stat.elapsed = Math.max(0, Number(s.elapsed) || 0);
@@ -374,6 +375,7 @@ function showEditValue() {
   $("resetBtn").hidden = gone;
   $("deleteBtn").hidden = gone;
   $("minusBtn").hidden = timer || gone;
+  $("addTimeBtn").hidden = !timer || gone;
   $("restoreBtn").hidden = !gone;
   $("purgeBtn").hidden = !gone;
   showEditMeta();
@@ -412,7 +414,8 @@ function showEditMeta() {
   log.innerHTML = "";
   for (const e of [...editing.log].reverse()) {
     const li = document.createElement("li");
-    li.innerHTML = `${logIcons[e.action] || e.action} · ${fmtUtc(e.time)}`;
+    const mark = e.action === "addtime" ? `+${fmtHms(e.added || 0)}` : logIcons[e.action] || e.action;
+    li.innerHTML = `${mark} · ${fmtUtc(e.time)}`;
     li.setAttribute("aria-label", `${e.action}, ${fmtUtc(e.time)}`);
     log.append(li);
   }
@@ -573,6 +576,59 @@ $("purgeBtn").onclick = () => {
     render();
   });
 };
+// timed stat → +: add time by hand (hours / minutes / seconds, no days or years). goes onto the total,
+// running or paused, and is logged ("addtime") so a hand-added top-up is never mistaken for tracked time
+const addFields = () => [$("addH"), $("addM"), $("addS")];
+// exactly what was entered, units that aren't 0: "7h 30m 45s", "45s" (unlike fmtTime, never drops the seconds)
+function fmtHms(ms) {
+  const s = Math.round(ms / 1000);
+  const parts = [[Math.floor(s / 3600), "h"], [Math.floor((s % 3600) / 60), "m"], [s % 60, "s"]].filter(([n]) => n > 0);
+  return parts.length ? parts.map(([n, u]) => `${n}${u}`).join(" ") : "0s";
+}
+function addedMs() {
+  const [h, m, s] = addFields().map((el) => Math.max(0, Math.floor(Number(el.value) || 0)));
+  return ((Math.min(h, 99) * 60 + Math.min(m, 59)) * 60 + Math.min(s, 59)) * 1000;
+}
+function updateAddTime() {
+  // each box is as wide as what's in it (1 or 2 digits), so the whole row re-centres as you type
+  for (const el of addFields()) el.style.width = `${Math.max(1, el.value.length) + 0.1}ch`;
+  const ms = addedMs();
+  $("addTimeYes").classList.toggle("dim", ms === 0);
+  $("addTimeText").innerHTML = ms
+    ? `add <b>${fmtHms(ms)}</b> to "${editing.name.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}"?`
+    : `add time to "${editing.name.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`)}"`;
+}
+$("addTimeBtn").onclick = () => {
+  if (!editing || editing.kind !== "timer" || editing.deleted) return;
+  for (const el of addFields()) el.value = "";
+  updateAddTime();
+  show($("addTimeDialog"));
+};
+for (const el of addFields()) {
+  el.addEventListener("input", () => {
+    // keep each box in range as you type (hours ≤ 99, minutes / seconds ≤ 59)
+    const max = Number(el.max);
+    if (Number(el.value) > max) el.value = max;
+    if (el.value.length > 2) el.value = el.value.slice(0, 2);
+    updateAddTime();
+  });
+  el.addEventListener("keydown", (e) => e.key === "Enter" && $("addTimeYes").click());
+}
+$("addTimeNo").onclick = () => $("addTimeDialog").close();
+$("addTimeYes").onclick = () => {
+  const stat = editing;
+  const ms = addedMs();
+  if (!stat || stat.kind !== "timer" || !ms) return;
+  stat.elapsed += ms;
+  stat.highest = Math.max(stat.highest, timeOf(stat));
+  stat.log.push({ action: "addtime", time: new Date().toISOString(), elapsed: stat.elapsed, added: ms });
+  save();
+  render();
+  $("addTimeDialog").close();
+  if (editing === stat) showEditValue();
+  if (navigator.vibrate) navigator.vibrate(10);
+};
+
 // full screen, so "outside" is any empty space: anything that isn't a button (or the rename field) goes back.
 // mid-rename, the first tap on empty space just finishes the rename
 $("editDialog").addEventListener("click", (e) => {
@@ -693,7 +749,7 @@ async function exportBackup(readOnly = false) {
       highest: "Counted stats: the highest the count has been. Timed stats: the longest it has run, in milliseconds.",
       deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
       last: "The latest change that isn't logged: action = add | subtract (counted stats) or pause | resume (timed stats), time = when (UTC). Only the latest one is kept.",
-      log: "Resets, deletes and restores, oldest first. action = reset | delete | restore, time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
+      log: "Resets, deletes, restores and (timed stats) time added by hand, oldest first. action = reset | delete | restore | addtime (added = ms added), time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
     },
     seal: "",
     readOnly,
