@@ -53,8 +53,11 @@ function normalize(s) {
   }
   if (s.deleted) stat.deleted = String(s.deleted);
   // the latest +1 / −1 (counted) or pause / resume (timed), if there's been one
-  const lastOk = timer ? ["pause", "resume"] : ["add", "subtract"];
-  if (s.last && lastOk.includes(s.last.action) && !isNaN(Date.parse(s.last.time))) stat.last = { action: s.last.action, time: String(s.last.time) };
+  const lastOk = timer ? ["pause", "resume", "addtime"] : ["add", "subtract"];
+  if (s.last && lastOk.includes(s.last.action) && !isNaN(Date.parse(s.last.time))) {
+    stat.last = { action: s.last.action, time: String(s.last.time) };
+    if (s.last.action === "addtime") stat.last.added = Math.max(0, Number(s.last.added) || 0);
+  }
   else if (!timer) {
     // older files logged every tap: their newest +1 / −1 becomes "last"
     const tap = all.filter((e) => e.action === "add" || e.action === "subtract").at(-1);
@@ -405,8 +408,9 @@ function showEditMeta() {
   // last action: + / − for counted stats, the play / pause icons for timed ones
   const icon = (id) => `<svg class="ic meta-ic"><use href="#${id}" /></svg>`;
   const marks = { add: "+", subtract: "−", pause: icon("i-pause"), resume: icon("i-play") };
+  const mark = (l) => (l.action === "addtime" ? `+${fmtHms(l.added || 0)}` : marks[l.action]); // added by hand: "+7h 30m"
   const last = editing.last;
-  $("editLast").innerHTML = last ? `last <b>${marks[last.action]}</b> · <b>${fmtUtc(last.time, true)}</b>` : "";
+  $("editLast").innerHTML = last ? `last <b>${mark(last)}</b> · <b>${fmtUtc(last.time, true)}</b>` : "";
   $("editLast").hidden = !settings.showLast || !last;
   // show logs: newest first, an icon per action (same as its button: reset arrow, red trash, undo arrow) · time
   const logIcons = { reset: icon("i-reset"), delete: `<span class="danger">${icon("i-trash")}</span>`, restore: icon("i-restore") };
@@ -621,7 +625,9 @@ $("addTimeYes").onclick = () => {
   if (!stat || stat.kind !== "timer" || !ms) return;
   stat.elapsed += ms;
   stat.highest = Math.max(stat.highest, timeOf(stat));
-  stat.log.push({ action: "addtime", time: new Date().toISOString(), elapsed: stat.elapsed, added: ms });
+  const time = new Date().toISOString();
+  stat.log.push({ action: "addtime", time, elapsed: stat.elapsed, added: ms });
+  stat.last = { action: "addtime", time, added: ms }; // counts as the last action too
   save();
   render();
   $("addTimeDialog").close();
@@ -709,7 +715,10 @@ function cyrb53(str, seed) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
 }
 function sealOf(file) {
-  const body = SEAL_KEY + JSON.stringify([file.readOnly === true, file.exported, file.stats]);
+  // settings are sealed too when the file has them (older backups don't, and still check out)
+  const parts = [file.readOnly === true, file.exported, file.stats];
+  if (file.settings !== undefined) parts.push(file.settings);
+  const body = SEAL_KEY + JSON.stringify(parts);
   return cyrb53(body, 1) + cyrb53(body, 2);
 }
 // full app reset: wipes everything this app keeps in localStorage (stats, settings, first-visit flags),
@@ -739,6 +748,7 @@ async function exportBackup(readOnly = false) {
       readOnly: "true = this file can only be viewed, never loaded as your own stats.",
       exported: "When this file was made.",
       stats: "Every stat, including deleted ones (kept so their history isn't lost).",
+      settings: "Your settings (font, colours, hold, pause, info). Restored along with the stats on import. Not in read-only copies.",
       id: "Unique id for the stat.",
       name: "What you're counting.",
       kind: "counter = a counted stat (tap to count), timer = a timed stat (counts time on its own).",
@@ -748,13 +758,14 @@ async function exportBackup(readOnly = false) {
       since: "Timed stats only: when the current run started (UTC), or null if paused.",
       highest: "Counted stats: the highest the count has been. Timed stats: the longest it has run, in milliseconds.",
       deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
-      last: "The latest change that isn't logged: action = add | subtract (counted stats) or pause | resume (timed stats), time = when (UTC). Only the latest one is kept.",
+      last: "The latest change that isn't logged: action = add | subtract (counted stats) or pause | resume | addtime (timed stats; addtime also has added = ms added by hand), time = when (UTC). Only the latest one is kept.",
       log: "Resets, deletes, restores and (timed stats) time added by hand, oldest first. action = reset | delete | restore | addtime (added = ms added), time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
     },
     seal: "",
     readOnly,
     exported: new Date().toISOString(),
     stats,
+    ...(readOnly ? {} : { settings }), // read-only copies are for someone else: they don't carry your settings
   };
   // round-trip so the seal is computed on exactly what the importer will read back
   backup.seal = sealOf(JSON.parse(JSON.stringify(backup)));
@@ -808,13 +819,23 @@ $("importFile").onchange = async () => {
       return;
     }
     const shown = incoming.filter((s) => !s.deleted).length;
+    const withSettings = parsed.settings && typeof parsed.settings === "object";
     const load = () => {
       stats = incoming;
       save();
+      // the backup's settings too: stored, then read back through loadSettings so anything odd falls back to defaults
+      if (withSettings) {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed.settings));
+        } catch {}
+        settings = loadSettings();
+        saveSettings();
+      }
       render();
       markSeen();
     };
-    if (visible().length) ask(`replace your current stats with ${shown} stat(s) from the file?`, load);
+    const what = withSettings ? `${shown} stat(s) and the settings` : `${shown} stat(s)`;
+    if (visible().length) ask(`replace your current stats with ${what} from the file?`, load);
     else load();
   } catch {
     ask("that file doesn't look like a stats backup.");
