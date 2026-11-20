@@ -1,13 +1,21 @@
 <br />
 
 <p align="center">
-  <a href="https://antoshkah.github.io">visit portfolio.</a>
+  <a href="https://antoshkah.github.io">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/btn-portfolio-dark.svg" />
+      <img src=".github/assets/btn-portfolio-light.svg" alt="visit portfolio." />
+    </picture>
+  </a>
 </p>
 
-<br />
-
 <p align="center">
-  <a href="https://antoshkah.github.io/stats/">#stats</a>
+  <a href="https://antoshkah.github.io/stats/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/btn-stats-dark.svg" />
+      <img src=".github/assets/btn-stats-light.svg" alt="#stats" />
+    </picture>
+  </a>
 </p>
 
 <br />
