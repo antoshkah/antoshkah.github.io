@@ -40,14 +40,5 @@ if (isNew()) {
 }
 render();
 
-// first visit: the welcome page comes first, then the ? / import screen behind it
-let welcomed = true;
-try {
-  welcomed = !!localStorage.getItem(WELCOME_KEY);
-} catch {}
-if (isNew() && !welcomed) {
-  show($("welcomeDialog"));
-  updateBar(); // dark status bar while the (dark) welcome page is up
-} else if (isNew()) {
-  playIntro(); // "#1 time?" types itself out (after the welcome, it's welcome.js that starts it)
-}
+// first visit: the # screen (app.js) — the # pops in, "stats" under it
+if (isNew()) playIntro();

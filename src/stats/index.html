@@ -74,12 +74,9 @@
         updateBar();
       }
 
-      // phone status bar matches the page: off-white on the first-visit screens, dark otherwise (welcome page included)
+      // phone status bar matches the page (the first-visit # screen is black too, like the rest of the app)
       function updateBar() {
-        const t = THEMES[loadSettings().theme];
-        const welcome = document.getElementById("welcomeDialog");
-        const light = document.documentElement.classList.contains("fresh") && !(welcome && welcome.open);
-        document.querySelector('meta[name="theme-color"]').content = light ? t.fg : t.bg;
+        document.querySelector('meta[name="theme-color"]').content = THEMES[loadSettings().theme].bg;
       }
 
       // set the empty / first-visit look before the page draws too
@@ -100,12 +97,12 @@
     <button class="star" id="star" aria-label="Add a stat (hold for the menu)">
       <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
     </button>
-    <!-- first visit, straight on the off-white page: "#1 time?" (tap: the guide). hold it 0.6s and it retypes
-         itself as "#2 time?" (tap: a page with the cloud and import). hold again to switch back -->
+    <!-- first visit: a black screen, just the # in the middle.
+         tap the #: "stats" types out after it (tap again: the guide).
+         hold the #: "welcomeback" types out instead (tap: the cloud / import page). hold again to switch back.
+         the line is centred, so the # slides left as the text grows (app.js) -->
     <div class="intro" id="intro" hidden>
-      <!-- "#1st time?": the # pops in alone in the middle, then "1st time?" types out after it (pushing it left as the
-           line grows, so it ends up centred). hold: "1st time?" backspaces away and "cloud/JSON" types in (app.js) -->
-      <button class="intro-q" id="introHelp" aria-label="first time?"><span class="intro-hash" id="introHash">#</span><span id="introRest"></span></button>
+      <button class="intro-q" id="introHelp" aria-label="stats"><span class="intro-hash" id="introHash">#</span><span id="introRest"></span></button>
     </div>
     <button id="viewBack" aria-label="Stop viewing" hidden><svg class="ic"><use href="#i-exit" /></svg></button>
     <!-- tap the plus: type a name, then pick # (counted) or clock (timed, starts straight away) -->
@@ -370,32 +367,15 @@
      </div>
     </dialog>
 
-    <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used, and a "how?" button.
-         tapping how? fades all of it away (the button last) and the links below come in, in the same place -->
-    <dialog id="welcomeDialog" class="page">
-      <!-- one centred column: title, heads-up, button, then "powered by" -->
-      <div class="welcome">
-        <!-- the title: the # from the app icon (measured off icon-512.png): two slanted uprights,
-             two straight crossbars (the lower one 6 to the left) -->
-        <svg class="welcome-title" viewBox="0 0 86 103" role="img" aria-label="stats">
-          <path d="M29.5 0h17L28.6 103h-17Z M57.5 0h17L56.6 103h-17Z M6 29h80v16H6Z M0 58h80v16H0Z" />
-        </svg>
-        <p class="warn"><b>heads up:</b> <i>stats</i> is made to be used as a web page on your phone, added to your home screen.</p>
-        <button class="how-btn" id="howBtn">how?</button>
-        <!-- "powered by Claude Code" types itself out, with the little guy as the cursor (welcome.js) -->
-        <div class="welcome-pb" aria-label="powered by Claude Code">
-          <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
-        </div>
-      </div>
-      <!-- after how?: how to add it to the home screen, one link per browser, each a Google search for its own steps
-           (just Safari and Chrome: the ones trusted to work as a home screen web app). "on your phone?" moves on to the
-           first-visit screen -->
-      <div class="welcome-how" id="welcomeHow" hidden>
+    <!-- first-timer guide → "add": how to add it to the home screen, one link per browser, each a Google search for its
+         own steps (just Safari and Chrome: the ones trusted to work as a home screen web app). exit goes back to the guide -->
+    <dialog id="addHomeDialog" class="page">
+      <div class="add-home">
         <ul class="browsers">
           <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+safari+on+ios" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-safari" /></svg>Safari</a></li>
-          <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+chrome+on+android%2Fios" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-chrome" /></svg>Chrome</a></li>        </ul>
-        <!-- already on the phone: straight on to the app -->
-        <button class="on-phone" id="howDone" aria-label="on your phone?">on your <svg class="ic" aria-hidden="true"><use href="#i-phone" /></svg>?</button>
+          <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+chrome+on+android%2Fios" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-chrome" /></svg>Chrome</a></li>
+        </ul>
+        <button class="add-home-back" id="addHomeBack" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
     </dialog>
 
@@ -441,9 +421,11 @@
         </div>
       </div>
 
-      <p class="tight">Hold <svg class="ic"><use href="#i-plus" /></svg> to open menu.</p>
+      <!-- first visit only: "add" opens the add-to-home-screen links (addHomeDialog) -->
+      <p class="first-only">For best user-experience, <button class="help-link" id="helpAdd">add</button> this webpage to your homescreen.</p>
       <!-- first visit only (instead of the thumbs up): the cloud login, or on to the empty + page -->
       <p class="first-only">To sync online click <button class="help-link" id="helpSync">here</button>, or continue <button class="help-link" id="helpOffline">offline</button>.</p>
+      <p class="tight">Hold <svg class="ic"><use href="#i-plus" /></svg> to open menu.</p>
       <ul class="legend">
         <!-- tap: the cloud sync info, full screen (cloudInfoDialog) -->
         <li><button class="legend-btn" id="cloudInfoBtn"><svg class="ic"><use href="#i-cloud" /></svg>cloud sync</button></li>
@@ -451,6 +433,11 @@
         <li><button class="legend-btn" id="dataInfoBtn"><span class="duo"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></span>import / export JSON</button></li>
         <li><b>A</b>settings</li>
       </ul>
+      <!-- first visit only, at the bottom: "powered by Claude Code" types itself out, with the little guy as the cursor
+           (welcome.js, started when this first-timer version opens) -->
+      <div class="welcome-pb first-only" aria-label="powered by Claude Code">
+        <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
+      </div>
 
       <button class="done" id="helpDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
     </dialog>

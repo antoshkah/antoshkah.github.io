@@ -319,12 +319,14 @@ $("viewBack").onclick = () => {
   render();
 };
 
-// first visit: "#1st time?" → the guide. hold it (0.6s) and it becomes "#cloud/JSON" → a page to bring your stats in,
-// from the cloud (cloud.js) or a backup file. hold again to switch back.
-// it arrives animated: the # pops in alone, in the middle, like a logo; then "1st time?" types out after it.
+// first visit: a black screen with just the # in the middle.
+//   tap the #   → "stats" types out after it ("#stats"); tap that → the first-timer guide
+//   hold the #  → "welcomeback" types out instead; tap that → the cloud / import page (startDialog)
+//   hold again  → switches between the two
 // the line is centred, so the # slides left as the text grows
 let introTyping = 0; // bumps on every (re)type, so an older one still running stops
-async function retypeIntro(text, wait = 70) {
+// italic: the new text types out in italics ("stats"); switched once the old text is gone, so it never italicises that
+async function retypeIntro(text, wait = 70, italic = false) {
   const run = ++introTyping;
   const el = $("introRest");
   const step = () => new Promise((ok) => setTimeout(ok, wait));
@@ -333,6 +335,7 @@ async function retypeIntro(text, wait = 70) {
     el.textContent = el.textContent.slice(0, -1);
     await step();
   }
+  el.classList.toggle("italic", italic);
   for (const ch of text) {
     if (run !== introTyping) return;
     el.textContent += ch;
@@ -343,22 +346,28 @@ let introPlayed = false;
 function playIntro() {
   if (introPlayed) return;
   introPlayed = true;
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return ($("introRest").textContent = "1st time?");
-  $("introHash").classList.add("pop"); // boom
-  setTimeout(() => retypeIntro("1st time?"), 900);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  $("introHash").classList.add("pop"); // the # arrives with a little swell
 }
-let introSecond = false;
-onLongPress($("introHelp"), () => {
-  introSecond = !introSecond;
-  $("introHelp").setAttribute("aria-label", introSecond ? "cloud or JSON" : "first time?");
-  retypeIntro(introSecond ? "cloud/JSON" : "1st time?", 55);
-}, 600);
+// null = just "#"; "first" = "#stats"; "back" = "#welcomeback"
+let introMode = null;
+function setIntro(mode) {
+  introMode = mode;
+  $("introHelp").setAttribute("aria-label", mode === "back" ? "welcome back" : "stats");
+  retypeIntro(mode === "back" ? "welcomeback" : "stats", 55, mode !== "back"); // "stats" in italics, "welcomeback" not
+}
+onLongPress($("introHelp"), () => setIntro(introMode === "back" ? "first" : "back"), 600);
 $("introHelp").onclick = () => {
-  if (introSecond) return show($("startDialog"));
+  if (!introMode) return setIntro("first");
+  if (introMode === "back") return show($("startDialog"));
   helpFromMenu = false;
-  $("helpDialog").classList.add("first"); // the short first-visit version
+  $("helpDialog").classList.add("first"); // the first-timer version
   show($("helpDialog"));
+  playPoweredBy(); // "powered by Claude Code" at its bottom types itself out (welcome.js)
 };
+// first-timer guide → "add": the add-to-home-screen links. exit goes back to the guide
+$("helpAdd").onclick = () => show($("addHomeDialog"));
+$("addHomeBack").onclick = () => $("addHomeDialog").close();
 $("startImport").onclick = () => {
   $("startDialog").close();
   $("importFile").click();
