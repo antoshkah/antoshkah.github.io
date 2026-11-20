@@ -1,19 +1,12 @@
-[visit website.](https://antoshkah.github.io)
+<p align="center">
+  <a href="https://antoshkah.github.io">visit portfolio.</a>
+  <br />
+  <a href="https://antoshkah.github.io/stats/">#stats</a>
+</p>
 
-## structure
-
-- `style.css`: global styles and typography
-- `script.js`: shared script placeholder
-- `clock.js`: clock rendering + behavior
-- `fonts/`, `images/`, `misc/`: asset folders
-
-## deploy
-
-Deployed with GitHub Pages from `main` via GitHub Actions.
-
-## tech stack
-
-- html
-- css
-- javascript
-- github (deployment)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/powered-dark.svg" />
+    <img src=".github/assets/powered-light.svg" alt="powered by Claude Code" />
+  </picture>
+</p>
