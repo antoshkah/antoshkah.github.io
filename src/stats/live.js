@@ -25,8 +25,11 @@ const valueOf = (s) => (s.kind === "timer" ? fmtTime(timeOf(s)) : s.count);
 const shown = new Map(); // stat id → stat
 let timerEls = [];
 
+// live: no word, the eye blinks instead. anything else (connecting…, offline, …) is said in words
 function setState(text) {
-  $("liveState").textContent = text;
+  const live = text === "live";
+  $("liveState").textContent = live ? "" : text;
+  document.querySelector(".viewing-label").classList.toggle("is-live", live);
 }
 
 // the list, like the app's: name greyed on the left, the number on the right. deleted stats aren't shown

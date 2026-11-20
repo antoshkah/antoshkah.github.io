@@ -200,6 +200,10 @@ dialog.page > * { width: min(100%, 300px); }
 .viewing-label .ic { width: 34px; height: 34px; color: var(--fg); }
 .viewing-label span { font-size: 0.8rem; font-style: italic; }
 .viewing-label[hidden], #viewBack[hidden] { display: none; }
+/* live view, connected: the eye blinks now and then (instead of saying "live") */
+.viewing-label.is-live .ic { animation: eyeblink 4s ease-in-out infinite; transform-origin: center; }
+@keyframes eyeblink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@media (prefers-reduced-motion: reduce) { .viewing-label.is-live .ic { animation: none; } }
 #viewBack { width: 56px; height: 56px; display: grid; place-items: center; color: var(--muted); }
 body.viewing .row .count { cursor: default; }
 /* the whole app is bold, so the export question goes regular to let its key words stand out */
