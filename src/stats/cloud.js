@@ -313,6 +313,7 @@ function renderAccount() {
   $("loginForm").hidden = inside;
   $("accountIn").hidden = !inside;
   $("logoutBtn").hidden = !inside;
+  $("accountCloud").toggleAttribute("hidden", !inside); // (an <svg> has no .hidden property, only the attribute)
   if (inside) {
     $("accountEmail").textContent = session.user.email;
     $("accountState").textContent = cloudStatus();
@@ -334,7 +335,6 @@ window.addEventListener("offline", () => {
 });
 $("accountBtn").onclick = () => {
   $("menuDialog").close();
-  $("loginError").textContent = "";
   renderAccount();
   show($("accountDialog"));
   if (session) loadShare();
@@ -345,34 +345,56 @@ $("loginForm").onsubmit = (e) => {
   const email = $("loginEmail").value.trim();
   const password = $("loginPassword").value;
   if (!email || !password) return;
-  const logIn = async () => {
-    $("loginError").textContent = "logging in…";
-    try {
-      storeSession(await authCall("grant_type=password", { email, password }));
-    } catch (err) {
-      $("loginError").textContent = err instanceof TypeError ? "no connection" : err.message;
-      return;
+  // the email and password are checked first (the plug goes in meanwhile); only then, if this device has stats,
+  // the warning. 👍 = connected. 👎 / tap off = the plug comes back out and that login is thrown away
+  const plug = $("plugBtn");
+  plug.classList.add("plugged"); // in it goes
+  const landed = new Promise((ok) => setTimeout(ok, 600)); // let the plug land before anything else happens
+  authCall("grant_type=password", { email, password }).then(
+    async (newSession) => {
+      await landed;
+      const connect = () => {
+        storeSession(newSession);
+        $("loginPassword").value = "";
+        setPending(false); // whatever was here before is replaced by the cloud's copy
+        renderAccount();
+        loadShare();
+        cloudStart();
+      };
+      if (!stats.length) return connect();
+      let yes = false;
+      ask('<span class="ask-head"><svg class="ic"><use href="#i-warn" /></svg><b>warning</b></span>connect will clear all local data.', () => {
+        yes = true;
+        connect();
+      }, true);
+      $("zeroDialog").addEventListener("close", () => {
+        if (yes) return;
+        plug.classList.remove("plugged");
+        // not using it: end that session on Supabase's side too (best effort)
+        fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${newSession.access_token}` } }).catch(() => {});
+      }, { once: true });
+    },
+    async (err) => {
+      await landed;
+      plug.classList.remove("plugged"); // didn't work: it comes back out
+      // wrong email or password: both cleared, and their placeholders go red for a moment.
+      // no connection: what you typed stays, in red for a moment
+      const fields = [$("loginEmail"), $("loginPassword")];
+      if (!(err instanceof TypeError)) for (const f of fields) f.value = "";
+      for (const f of fields) f.classList.add("bad");
+      setTimeout(() => fields.forEach((f) => f.classList.remove("bad")), 1800);
     }
-    $("loginPassword").value = "";
-    $("loginError").textContent = "";
-    setPending(false); // whatever was here before is replaced by the cloud's copy
-    renderAccount();
-    loadShare();
-    cloudStart();
-  };
-  if (stats.length) ask("logging in replaces the stats on this device with the ones in your cloud. export first if you want to keep them.", logIn);
-  else logIn();
+  );
 };
-// log out: asks first, then the page fades, the cloud implodes, and it closes
+// log out: asks first, then the page fades, the cloud implodes, and the login page fades in (without the cloud)
 $("logoutBtn").onclick = () =>
-  ask("log out?", () => {
+  ask("disconnect?", () => {
     const page = $("accountDialog");
     page.classList.add("leaving");
     setTimeout(() => {
-      logOut();
-      page.close();
+      logOut(); // shows the login form, hides the cloud
       page.classList.remove("leaving");
-    }, 1250); // 0.5s fade, then the 0.5s implode (starts at 0.6s)
+    }, 1500); // 0.6s fade, then the 0.6s implode (starts at 0.75s), then a beat
   });
 function logOut() {
   const token = session && session.access_token;
@@ -383,6 +405,7 @@ function logOut() {
   syncError = "";
   shareName = null;
   $("shareName").value = "";
+  $("plugBtn").classList.remove("plugged"); // unplugged, ready for next time
   renderAccount();
   // tell Supabase too (best effort; the stats on this device stay as they are)
   if (token) fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } }).catch(() => {});

@@ -530,9 +530,11 @@ $("minusBtn").onclick = () => change(-1);
 
 // the yes / no page (reset, delete, replacing stats on import). no onYes = just a message with a back button
 let onYes = null;
-function ask(text, yes = null) {
+// html = true: the text is our own markup (e.g. a <b> word), regular weight so the bold part stands out
+function ask(text, yes = null, html = false) {
   onYes = yes;
-  $("confirmText").textContent = text;
+  $("confirmText")[html ? "innerHTML" : "textContent"] = text;
+  $("confirmText").classList.toggle("rich", html);
   $("yesBtn").hidden = !yes;
   $("noIcon").setAttribute("href", yes ? "#i-down" : "#i-exit");
   show($("zeroDialog"));
