@@ -40,7 +40,10 @@ function normalize(s) {
   const created = s.created ? String(s.created) : (all[0] && all[0].time) || new Date().toISOString();
   // kept: resets, deletes and restores (taps and pauses aren't logged)
   // (timed stats also keep "addtime": time added by hand)
-  const log = all.filter((e) => ["reset", "delete", "restore"].includes(e.action) || (timer && e.action === "addtime"));
+  // (count / elapsed are only read above, for older files' highest; the kept entries don't carry them)
+  const log = all
+    .filter((e) => ["reset", "delete", "restore"].includes(e.action) || (timer && e.action === "addtime"))
+    .map((e) => (e.action === "addtime" ? { action: e.action, time: e.time, added: e.added } : { action: e.action, time: e.time }));
   const stat = { id: s.id || String(Math.random()), name: String(s.name || "untitled"), kind: timer ? "timer" : "counter", created };
   if (timer) {
     stat.elapsed = Math.max(0, Number(s.elapsed) || 0);
@@ -109,7 +112,7 @@ function record(stat, action) {
     }
     // pausing / resuming isn't logged, only resets and deletes; the latest pause / resume is kept in "last"
     if (action === "pause" || action === "resume") stat.last = { action, time };
-    if (action === "reset" || action === "delete") stat.log.push({ action, time, elapsed: stat.elapsed });
+    if (action === "reset" || action === "delete") stat.log.push({ action, time });
     save();
     return;
   }
@@ -121,7 +124,7 @@ function record(stat, action) {
   stat.highest = Math.max(stat.highest, stat.count);
   // taps (add / subtract) aren't logged, only the latest one is kept in "last"; resets and deletes are logged
   if (action === "add" || action === "subtract") stat.last = { action, time };
-  if (action === "reset" || action === "delete") stat.log.push({ action, time, count: stat.count });
+  if (action === "reset" || action === "delete") stat.log.push({ action, time });
   save();
 }
 
@@ -315,7 +318,10 @@ $("viewBack").onclick = () => {
 };
 
 // first visit
-$("introHelp").onclick = () => show($("helpDialog"));
+$("introHelp").onclick = () => {
+  helpFromMenu = false;
+  show($("helpDialog"));
+};
 $("introImport").onclick = () => $("importFile").click();
 
 // star opens the name field (just a cursor); holding it opens the menu
@@ -383,14 +389,14 @@ function showEditValue() {
   $("purgeBtn").hidden = !gone;
   showEditMeta();
 }
-// "2026-11-18 14:05 UTC": 24h, always UTC, so it reads the same wherever you are
-// pass seconds = true for "…14:05:09 UTC" (used by "last", where taps can be seconds apart)
+// "2026-11-18 14:05": 24h, always UTC (but not labelled), so it reads the same wherever you are
+// pass seconds = true for "…14:05:09" (used by "last", where taps can be seconds apart)
 function fmtUtc(iso, seconds = false) {
   const d = new Date(iso);
   if (isNaN(d)) return "";
   const pad = (n) => String(n).padStart(2, "0");
   const secs = seconds ? `:${pad(d.getUTCSeconds())}` : "";
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}${secs} UTC`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}${secs}`;
 }
 // the greyed lines under the buttons: when it was made, how often it's been reset (each optional in settings)
 function showEditMeta() {
@@ -531,6 +537,10 @@ function ask(text, yes = null) {
   show($("zeroDialog"));
 }
 $("noBtn").onclick = () => $("zeroDialog").close();
+// tapping any empty space on the yes / no page is the same as no
+$("zeroDialog").addEventListener("click", (e) => {
+  if (!e.target.closest("button")) $("zeroDialog").close();
+});
 $("yesBtn").onclick = () => {
   const yes = onYes;
   $("zeroDialog").close();
@@ -562,7 +572,7 @@ $("restoreBtn").onclick = () => {
     delete stat.deleted;
     const time = new Date().toISOString();
     stat.created = time; // restored = a fresh start: created (and so "active since") count from now
-    stat.log.push(stat.kind === "timer" ? { action: "restore", time, elapsed: stat.elapsed } : { action: "restore", time, count: stat.count });
+    stat.log.push({ action: "restore", time });
     save();
     render();
     if (editing === stat) showEditValue();
@@ -626,7 +636,7 @@ $("addTimeYes").onclick = () => {
   stat.elapsed += ms;
   stat.highest = Math.max(stat.highest, timeOf(stat));
   const time = new Date().toISOString();
-  stat.log.push({ action: "addtime", time, elapsed: stat.elapsed, added: ms });
+  stat.log.push({ action: "addtime", time, added: ms });
   stat.last = { action: "addtime", time, added: ms }; // counts as the last action too
   save();
   render();
@@ -663,12 +673,24 @@ for (const d of document.querySelectorAll("dialog")) {
 }
 
 // how to use
+// opened from the menu (not a first visit): tapping any empty space on the guide goes back to the menu
+let helpFromMenu = false;
 $("helpBtn").onclick = () => {
+  helpFromMenu = true;
   $("menuDialog").close();
   show($("helpDialog"));
   $("helpDialog").scrollTop = 0;
 };
-$("helpDone").onclick = () => $("helpDialog").close();
+// 👍 or tapping empty space: back to the menu if it was opened from there, otherwise (first visit) to the list
+const leaveHelp = () => {
+  $("helpDialog").close();
+  if (helpFromMenu) show($("menuDialog"));
+};
+$("helpDone").onclick = leaveHelp;
+$("helpDialog").addEventListener("click", (e) => {
+  if (!helpFromMenu || e.target.closest("button, a")) return;
+  leaveHelp();
+});
 $("helpDialog").addEventListener("close", markSeen);
 
 // export: just export, export read-only, or full app reset (asks yes / no first)
@@ -736,39 +758,56 @@ $("exportYes").onclick = () => {
   location.reload();
 };
 
+// backup files use 3-letter keys; the app works with the full names. where the first three letters clash,
+// it's the first letter + the start of the next word (showCreated → scr, timerPause → tpa)
+const SHORT_KEYS = {
+  _readme: "_re", seal: "sea", readOnly: "rea", exported: "exp", stats: "sta", settings: "set",
+  id: "id", name: "nam", kind: "kin", created: "cre", count: "cou", elapsed: "ela", since: "sin",
+  highest: "hig", deleted: "del", last: "las", log: "log", action: "act", time: "tim", added: "add",
+  theme: "the", font: "fon", hold: "hol", timerPause: "tpa",
+  showCreated: "scr", showResets: "sre", showDeleted: "sde", showAge: "sag", showLogs: "slo", showLast: "sla",
+};
+const LONG_KEYS = Object.fromEntries(Object.entries(SHORT_KEYS).map(([k, v]) => [v, k]));
+// renames every object key found in the map, all the way down; anything else is left as it is
+function renameKeys(value, map) {
+  if (Array.isArray(value)) return value.map((v) => renameKeys(v, map));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [map[k] ?? k, renameKeys(v, map)]));
+}
+
 // returns true once the file has been shared or downloaded
 async function exportBackup(readOnly = false) {
-  // JSON has no comments, so the explanation lives in a "_readme" field (ignored on import)
+  // written with the file's own 3-letter keys (see SHORT_KEYS); stats and settings are renamed into them.
+  // JSON has no comments, so the explanation lives in a "_re" (readme) field (ignored on import)
   const backup = {
-    _readme: {
-      about: readOnly
-        ? "Read-only copy from the stats app. Importing it only lets you look at these stats."
-        : "Backup from the stats app. Import it from the menu (hold the +) to restore.",
-      seal: "Fingerprint of this file. If anything below is edited, the app will only open it as read-only.",
-      readOnly: "true = this file can only be viewed, never loaded as your own stats.",
-      exported: "When this file was made.",
-      stats: "Every stat, including deleted ones (kept so their history isn't lost).",
-      settings: "Your settings (font, colours, hold, pause, info). Restored along with the stats on import. Not in read-only copies.",
-      id: "Unique id for the stat.",
-      name: "What you're counting.",
-      kind: "counter = a counted stat (tap to count), timer = a timed stat (counts time on its own).",
-      created: "When the stat was made (UTC).",
-      count: "Counted stats only: the current number.",
-      elapsed: "Timed stats only: milliseconds counted in earlier runs (the current run is on top of this).",
-      since: "Timed stats only: when the current run started (UTC), or null if paused.",
-      highest: "Counted stats: the highest the count has been. Timed stats: the longest it has run, in milliseconds.",
-      deleted: "Only on deleted stats: when it was deleted. Deleted stats stay hidden in the app.",
-      last: "The latest change that isn't logged: action = add | subtract (counted stats) or pause | resume | addtime (timed stats; addtime also has added = ms added by hand), time = when (UTC). Only the latest one is kept.",
-      log: "Resets, deletes, restores and (timed stats) time added by hand, oldest first. action = reset | delete | restore | addtime (added = ms added), time = when it happened (UTC), count (counted stats) or elapsed (timed stats) = the value right after.",
+    _re: {
+      r: readOnly
+        ? ""
+        : "w",
+      sea: "fingerprint (rw)",
+      exp: "JSON file creation time",
+      sta: "all stats (&deleted)",
+      set: "your settings (rw)",
+      id: "unique random-generated ID",
+      nam: "mutable",
+      kin: "counter|timer",
+      cre: "stat creation time",
+      cou: "(counter)",
+      ela: "(timer)",
+      sin: "(timer)",
+      hig: "",
+      del: "delete marker",
+      las: "add|subtract|pause|resume|addtime",
+      log: "act = reset|delete|restore|addtime; tim = [new Date().toISOString()]ms; add = ms added (addtime only).",
     },
-    seal: "",
-    readOnly,
-    exported: new Date().toISOString(),
-    stats,
-    ...(readOnly ? {} : { settings }), // read-only copies are for someone else: they don't carry your settings
+    sea: "",
+    rea: readOnly,
+    exp: new Date().toISOString(),
+    sta: renameKeys(stats, SHORT_KEYS),
+    ...(readOnly ? {} : { set: renameKeys(settings, SHORT_KEYS) }), // read-only copies are for someone else: they don't carry your settings
   };
-  // round-trip so the seal is computed on exactly what the importer will read back
-  backup.seal = sealOf(JSON.parse(JSON.stringify(backup)));
+  // round-trip and expand the keys, so the seal is computed on exactly what the importer will read back
+  backup.sea = sealOf(renameKeys(JSON.parse(JSON.stringify(backup)), LONG_KEYS));
   const json = JSON.stringify(backup, null, 2);
   // local date and time, e.g. stats-2026-11-18_14-05-32.json (no colons: not allowed in filenames)
   const now = new Date();
@@ -804,7 +843,8 @@ $("importFile").onchange = async () => {
   $("importFile").value = "";
   if (!file) return;
   try {
-    const parsed = JSON.parse(await file.text());
+    // short keys back to the full names (older files already use full names and pass through unchanged)
+    const parsed = renameKeys(JSON.parse(await file.text()), LONG_KEYS);
     // new backups are { _readme, exported, stats }; old ones are a bare array
     const data = Array.isArray(parsed) ? parsed : parsed && parsed.stats;
     if (!Array.isArray(data)) throw new Error();

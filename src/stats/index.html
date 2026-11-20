@@ -291,12 +291,19 @@
     <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used,
          and a "how & why?" button to the page below -->
     <dialog id="welcomeDialog" class="page">
-      <!-- every piece is a direct child of .welcome, so one gap spaces them all equally -->
+      <!-- one centred column: title, heads-up, button, then "powered by" -->
       <div class="welcome">
-        <svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges" aria-label="powered by Claude Code"></svg>
-        <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b></span>
+        <!-- the title: the # from the app icon (measured off icon-512.png): two slanted uprights,
+             two straight crossbars (the lower one 6 to the left) -->
+        <svg class="welcome-title" viewBox="0 0 86 103" role="img" aria-label="stats">
+          <path d="M29.5 0h17L28.6 103h-17Z M57.5 0h17L56.6 103h-17Z M6 29h80v16H6Z M0 58h80v16H0Z" />
+        </svg>
         <p class="warn"><b>heads up:</b> <i>stats</i> is made to be used as a web page on your phone, added to your home screen.</p>
         <button class="how-btn" id="howBtn">how &amp; why?</button>
+        <!-- "powered by Claude Code" types itself out, with the little guy as the cursor (welcome.js) -->
+        <div class="welcome-pb" aria-label="powered by Claude Code">
+          <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
+        </div>
       </div>
     </dialog>
 
@@ -305,6 +312,7 @@
     <dialog id="howDialog" class="page">
       <div class="how">
         <h2>how?</h2>
+        <p> add <i>stats</i> to your home screen.</p>
         <!-- drop-down guides: tap a heading to open it; opening one closes the other -->
         <div class="acc">
           <div class="acc-item">
@@ -333,11 +341,24 @@
             </div></div>
           </div>
         </div>
+        <!-- other browsers: tap "not your browser?" and it fades into a column of the five, a Google search each
+             (Samsung Internet is Android only). kept outside .acc: it isn't a drop-down -->
+        <div class="others">
+          <button class="others-btn" id="othersBtn">not your browser?</button>
+          <ul class="browsers" id="othersList" hidden>
+            <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+samsung+internet" target="_blank" rel="noopener">Samsung</a></li>
+            <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+opera+on+android%2Fios" target="_blank" rel="noopener">Opera</a></li>
+            <li style="--i: 2"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+uc+browser+on+android%2Fios" target="_blank" rel="noopener">UC</a></li>
+            <li style="--i: 3"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+firefox+on+android%2Fios" target="_blank" rel="noopener">Firefox</a></li>
+            <li style="--i: 4"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+brave+on+android%2Fios" target="_blank" rel="noopener">Brave</a></li>
+          </ul>
+        </div>
 
         <h2>why?</h2>
-        <p><i>stats</i> keeps everything in <a href="https://www.w3schools.com/jsref/prop_win_localstorage.asp" target="_blank" rel="noopener"><b>localStorage</b></a>. no data is stored externally, and there's no account. you can <b>export</b> now and then to keep a backup.</p>
-        <p><b>localStorage</b> belongs to one webpage on one device: clearing your browser's history or website data deletes it.</p>
-        <p>everything works <b>offline</b>.</p>
+        <p><i>stats</i> keeps everything in <a href="https://www.w3schools.com/jsref/prop_win_localstorage.asp" target="_blank" rel="noopener"><b>localStorage</b></a>. no data is stored externally, and there's no account.</p>
+        <p><b>localStorage</b> belongs to one webpage: clearing your browser's history or website data deletes it.  you can <b>export</b> now and then to keep a backup.</p>
+        <p class="tight">everything is <b>offline</b> and <b>on-device</b>.</p>
+        <p class="soon">(live view coming in 2.0)</p>
         <div class="acc">
           <div class="acc-item">
             <button class="acc-head">iOS<svg class="ic chev"><use href="#i-chev" /></svg></button>
@@ -362,7 +383,8 @@
     <dialog id="helpDialog">
       <!-- animated walkthrough, driven by runDemo() -->
       <div class="demo" id="demo" aria-hidden="true">
-        <div class="d-row" id="dRow" hidden><span class="d-name" id="dName"></span><span class="d-count" id="dCount">0</span></div>
+        <div class="d-row" id="dRowC" hidden><span class="d-name" id="dNameC">counted</span><span class="d-count" id="dCountC">0</span></div>
+        <div class="d-row" id="dRowT" hidden><span class="d-name" id="dNameT">timed</span><span class="d-count timer" id="dCountT">0s</span></div>
         <div class="d-star" id="dStar"><svg class="ic"><use href="#i-plus" /></svg></div>
         <div class="d-compose" id="dBox" hidden>
           <div class="d-typed"><span id="dTyped"></span><span class="d-caret"></span></div>
@@ -383,6 +405,15 @@
             <span class="muted"><svg class="ic"><use href="#i-down" /></svg></span>
           </div>
         </div>
+        <!-- the menu (hold the +) -->
+        <div class="d-menu" id="dMenu">
+          <span><svg class="ic"><use href="#i-import" /></svg></span>
+          <span><svg class="ic"><use href="#i-export" /></svg></span>
+          <span class="glyph">A</span>
+          <span class="glyph">?</span>
+        </div>
+        <!-- a soft dip between scenes, so a jump to another page doesn't look like something the app does on its own -->
+        <div class="d-cut" id="dCut"></div>
         <div class="d-finger" id="dFinger">
           <svg viewBox="0 0 24 24">
             <!-- glove: index finger up, three curled fingers, thumb on the left, cuff at the wrist -->

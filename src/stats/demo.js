@@ -1,4 +1,7 @@
 // the animated walkthrough at the top of the how-to page (runDemo is started by show() in app.js)
+// the story: make a counted and a timed stat, hold into counted and reset it, cut to timed and reset it,
+// tap off back to the list, hold into counted again and delete it, then hold the + to open the menu.
+// the jump from one stat page to the other is a soft cut (the screen dips and comes back), so they don't look like something the app does on its own
 
 // the walkthrough loops while the guide is open; closing it (or reopening) stops the old loop
 let demoRun = 0;
@@ -23,12 +26,6 @@ async function runDemo() {
       await wait(550);
     }
   };
-  // move to an empty point, given as a fraction of the demo's width / height
-  const moveToSpot = async (fx, fy) => {
-    const a = demo.getBoundingClientRect();
-    finger.style.transform = `translate(${a.width * fx}px, ${a.height * fy}px)`;
-    await wait(550);
-  };
   const tap = async () => {
     finger.classList.add("press");
     await wait(130);
@@ -40,7 +37,6 @@ async function runDemo() {
     void el.offsetWidth; // restart the animation
     el.classList.add("bump");
   };
-  const set = (id, n) => { $(id).textContent = n; bump($(id)); };
   const poof = (el) => {
     const a = demo.getBoundingClientRect();
     const b = el.getBoundingClientRect();
@@ -60,34 +56,75 @@ async function runDemo() {
       setTimeout(() => s.remove(), 500);
     }
   };
-  // the demo timer: ticks one second at a time while running
+
+  // which stat page is showing: "counted", "timed" or "" (the list)
+  let page = "";
+  let count = 0;
+  // the demo timer: ticks one second at a time while running, on its row and (if open) its page
   let tSecs = 0;
   let tRunning = false;
-  const ticker = setInterval(() => {
-    if (run !== demoRun || !$("helpDialog").open) return clearInterval(ticker);
-    if (!tRunning) return;
-    tSecs++;
-    showTime(`${tSecs}s`);
-  }, 1000);
-  const swell = async (id, zero) => {
-    const el = $(id);
-    el.classList.remove("swell", "bump");
-    void el.offsetWidth;
-    el.classList.add("swell");
-    await wait(230); // at its biggest
-    tSecs = 0;
-    el.textContent = zero;
-    $("dCount").textContent = zero;
-    await wait(300);
-    el.classList.remove("swell");
+  const showTime = () => {
+    $("dCountT").textContent = `${tSecs}s`;
+    if (page === "timed") $("dBig").textContent = `${tSecs}s`;
   };
-  // shared steps: open the name field, type, then tap # or the clock
-  // the demo stat is named after its kind: "counted" or "timed" (typed in, then shown on its row and page)
-  let statName = "";
-  const addStat = async (kindEl, name) => {
-    statName = name;
-    $("dName").textContent = name;
-    $("dPopName").textContent = name;
+  // (re)started the moment the timer starts, so its seconds land on known beats of the story
+  let ticker = null;
+  const startTimer = () => {
+    clearInterval(ticker);
+    tRunning = true;
+    ticker = setInterval(() => {
+      if (run !== demoRun || !$("helpDialog").open) return clearInterval(ticker);
+      if (!tRunning) return;
+      tSecs++;
+      showTime();
+    }, 1000);
+  };
+
+  // fill the stat page for one of the two stats
+  const fillPage = (kind) => {
+    page = kind;
+    const timer = kind === "timed";
+    $("dPopName").textContent = kind;
+    $("dBig").classList.remove("swell", "bump");
+    $("dBig").classList.toggle("timer", timer);
+    $("dBig").textContent = timer ? `${tSecs}s` : count;
+    $("dMinus").hidden = timer;
+  };
+  // a soft cut: the screen dips to the background, the scene changes behind it, then it comes back
+  const cut = async (change) => {
+    finger.classList.remove("on");
+    $("dCut").classList.add("on");
+    await wait(500);
+    change();
+    await wait(250);
+    $("dCut").classList.remove("on");
+    await wait(550);
+  };
+  const openByCut = (kind) =>
+    cut(() => {
+      fillPage(kind);
+      $("dPop").classList.add("on");
+    });
+
+  // hold a stat's row to open its page
+  const hold = async (kind) => {
+    await moveTo($(kind === "timed" ? "dNameT" : "dNameC"));
+    finger.classList.add("hold");
+    await wait(750);
+    finger.classList.remove("hold");
+    fillPage(kind);
+    $("dPop").classList.add("on");
+    await wait(700);
+  };
+  // move to an empty point, given as a fraction of the demo's width / height
+  const moveToSpot = async (fx, fy) => {
+    const a = demo.getBoundingClientRect();
+    finger.style.transform = `translate(${a.width * fx}px, ${a.height * fy}px)`;
+    await wait(550);
+  };
+
+  // shared steps: open the name field, type, then tap # or the clock; the new row shows up in the list
+  const addStat = async (kindEl, name, row) => {
     await moveTo($("dStar"));
     await tap();
     $("dStar").hidden = true;
@@ -104,134 +141,134 @@ async function runDemo() {
     await tap();
     $("dBox").hidden = true;
     $("dStar").hidden = false;
-    $("dRow").hidden = false;
+    row.hidden = false;
   };
-  const hold = async () => {
-    await moveTo($("dName"));
-    finger.classList.add("hold");
-    await wait(750);
-    finger.classList.remove("hold");
-    $("dPop").classList.add("on");
-    await wait(700);
-  };
-  const resetAndDelete = async (zero) => {
-    // reset → yes: the value swells and lands on zero
-    $("dAsk").textContent = `reset "${statName}"?`;
-    await moveTo($("dReset"));
+  // ask → yes on the stat page that's showing
+  const confirm = async (btn, what) => {
+    $("dAsk").textContent = `${what} "${page}"?`;
+    await moveTo(btn);
     await tap();
     $("dZero").classList.add("on");
     await wait(500);
     await moveTo($("dYes"));
     await tap();
     $("dZero").classList.remove("on");
+  };
+  // reset → yes: the value swells and lands on zero (a running timer keeps going from zero)
+  const reset = async () => {
+    await confirm($("dReset"), "reset");
     await wait(150);
-    await swell("dBig", zero);
-    await wait(800);
-    // delete → yes: both pages close together (like the real app), back on the list
-    // the stat vanishes in a burst of small straight sparks
-    $("dAsk").textContent = `delete "${statName}"?`;
-    await moveTo($("dTrash"));
-    await tap();
-    $("dZero").classList.add("on");
-    await wait(500);
-    await moveTo($("dYes"));
-    await tap();
-    tRunning = false;
-    finger.classList.remove("on");
-    $("dZero").classList.remove("on");
-    $("dPop").classList.remove("on");
-    await wait(220); // the pages fade away
-    poof($("dRow"));
-    await wait(700);
-    $("dRow").hidden = true;
-    $("dRow").classList.remove("poof");
-  };
-  // switch the mock between a counted and a timed stat
-  const asTimer = (on) => {
-    $("dCount").classList.toggle("timer", on);
-    $("dBig").classList.toggle("timer", on);
-    $("dMinus").hidden = on;
-    for (const id of ["dCount", "dBig"]) $(id).classList.remove("paused");
-  };
-  const showTime = (t) => {
-    $("dCount").textContent = t;
-    $("dBig").textContent = t;
+    const el = $("dBig");
+    el.classList.remove("swell", "bump");
+    void el.offsetWidth;
+    el.classList.add("swell");
+    await wait(230); // at its biggest
+    if (page === "timed") {
+      tSecs = 0;
+      showTime();
+    } else {
+      count = 0;
+      el.textContent = 0;
+      $("dCountC").textContent = 0;
+    }
+    await wait(300);
+    el.classList.remove("swell");
   };
 
   try {
     while (true) {
       // fresh scene
       demo.classList.remove("fade");
-      $("dRow").hidden = true;
-      $("dRow").classList.remove("poof");
-      $("dBig").classList.remove("swell");
+      for (const id of ["dRowC", "dRowT"]) {
+        $(id).hidden = true;
+        $(id).classList.remove("poof");
+      }
+      $("dBig").classList.remove("swell", "timer");
       $("dBox").hidden = true;
       $("dStar").hidden = false;
       $("dTyped").textContent = "";
-      $("dCount").textContent = 0;
       $("dPop").classList.remove("on");
       $("dZero").classList.remove("on");
+      $("dCut").classList.remove("on");
+      $("dMenu").classList.remove("on");
       finger.classList.remove("on", "press", "hold");
+      page = "";
+      count = 0;
+      $("dCountC").textContent = 0;
       tRunning = false;
-      asTimer(false);
+      tSecs = 0;
+      showTime();
       await wait(700);
 
-      // ── counted stat ──
-      await addStat($("dKStar"), "counted");
-      await wait(600);
-
-      // tap the number a few times
-      await moveTo($("dCount"));
+      // ── make both: a counted stat (tapped a few times) and a timed one (ticking from the moment it's made) ──
+      await addStat($("dKStar"), "counted", $("dRowC"));
+      await wait(400);
+      await moveTo($("dCountC"));
       for (let n = 1; n <= 3; n++) {
         await tap();
-        set("dCount", n);
+        count = n;
+        $("dCountC").textContent = n;
+        bump($("dCountC"));
         await wait(180);
       }
-      await wait(400);
-
-      // hold to open, − takes one away
-      $("dBig").textContent = 3;
-      await hold();
-      await moveTo($("dMinus"));
-      await tap();
-      set("dBig", 2);
-      $("dCount").textContent = 2;
-      await wait(700);
-
-      await resetAndDelete(0);
-      await wait(900);
-
-      // ── timed stat ──
-      asTimer(true);
-      tSecs = 0;
-      showTime("0s");
-      await addStat($("dKClock"), "timed");
-      tRunning = true; // starts counting the moment the clock is tapped
+      await wait(300);
+      await addStat($("dKClock"), "timed", $("dRowT"));
+      startTimer();
       finger.classList.remove("on");
-      await wait(2600);
+      // timed so the cut to the timed page lands just after it ticks to 6s (≈6.06s in), and 7s follows
+      // right after the fade back in: hold into counted 1.78s + reset 2.78s + 0.7s + the cut's dip 0.5s = 5.76s
+      await wait(300);
 
-      // hold to open: still ticking. tap the time: it stops and greys out. tap again: ticks on
-      await hold();
+      // ── reset both: hold into counted, reset, then a soft cut over to timed and reset that too ──
+      await hold("counted");
+      await reset();
+      await wait(700);
+      await openByCut("timed");
+      await wait(600);
+      await reset();
       await wait(900);
-      await moveTo($("dBig"));
-      await tap();
-      tRunning = false;
-      $("dCount").classList.add("paused");
-      $("dBig").classList.add("paused");
-      await wait(2200);
-      await tap();
-      tRunning = true;
-      $("dCount").classList.remove("paused");
-      $("dBig").classList.remove("paused");
-      await wait(2100);
 
-      // tap any empty space on the stat page to go back; it keeps ticking in the list
+      // tap any empty space on the stat page to go back to the list
       await moveToSpot(0.22, 0.2);
       await tap();
       $("dPop").classList.remove("on");
+      page = "";
+      await wait(700);
+
+      // ── delete just the counted one: hold into it, delete, the pages close and the row bursts away ──
+      await hold("counted");
+      await confirm($("dTrash"), "delete");
+      finger.classList.remove("on");
+      $("dPop").classList.remove("on");
+      page = "";
+      await wait(220); // the pages fade away
+      poof($("dRowC"));
+      await wait(500);
+      // the empty space closes up: timed (and the +) slide to the middle, like the real list re-centring
+      const movers = [$("dRowT"), $("dStar")];
+      const before = movers.map((el) => el.getBoundingClientRect().top);
+      $("dRowC").hidden = true;
+      movers.forEach((el, i) => {
+        el.style.transition = "none";
+        el.style.transform = `translateY(${before[i] - el.getBoundingClientRect().top}px)`;
+      });
+      void demo.offsetWidth;
+      for (const el of movers) {
+        el.style.transition = "transform 0.35s ease-in-out";
+        el.style.transform = "";
+      }
+      await wait(600);
+      for (const el of movers) el.style.transition = "";
+
+      // ── hold the + to open the menu ──
+      await moveTo($("dStar"));
+      finger.classList.add("hold");
+      await wait(750);
+      finger.classList.remove("hold");
+      $("dMenu").classList.add("on");
       await wait(500);
       finger.classList.remove("on");
-      await wait(1300);
+      await wait(1800);
 
       demo.classList.add("fade");
       await wait(500);

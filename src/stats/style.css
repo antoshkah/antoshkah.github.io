@@ -277,27 +277,44 @@ body.viewing .row .count { cursor: default; }
 
 /* welcome page (first visit): the app's usual dark look, even though the rest of the first visit is off-white */
 #welcomeDialog { background: var(--bg); color: var(--fg); }
+/* everything in one column in the middle of the screen, one gap between each piece */
 .welcome { width: min(100%, 300px); display: flex; flex-direction: column; align-items: center; gap: 26px; }
-.clawd { width: 72px; height: 40px; overflow: visible; animation: walkin 1.6s steps(12) both, bob 1.4s ease-in-out 2.2s infinite; }
+/* 86 × 103 like the icon's #, shown 48px tall */
+.welcome-title { display: block; flex: none; width: 40px; height: 48px; fill: currentColor; }
+/* "powered by Claude Code" under the button */
+.welcome-pb { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+/* types out one letter at a time: welcome.js wraps each letter in a span and shows them one by one.
+   every letter sits in its final place from the start, so the line is centred and nothing can be clipped
+   (clipping the line to its box cut off "Code" in Safari when the font loaded a little wider) */
+.pb-text { position: relative; font-size: 0.85rem; white-space: nowrap; }
+/* inline-block so each letter can move (white-space: pre keeps the spaces their width) */
+.pb-text span { display: inline-block; white-space: pre; visibility: hidden; }
+/* each letter comes out of the little guy: from his spot, small, to its own place */
+.pb-text span.on { visibility: visible; animation: popout 0.16s ease-out; }
+@keyframes popout { from { transform: translateX(10px) scale(0.2); opacity: 0; } }
+.pb-text b { color: #d97757; }
+/* the little guy: welcome.js keeps his left edge on the right edge of the last letter out, so the letters
+   come out of him. out of the flow, so he never pushes the text off centre */
+.clawd { position: absolute; left: 0; top: 50%; width: 27px; height: 15px; margin-top: -8px; overflow: visible; opacity: 0; transition: opacity 0.2s, left 0.07s linear; pointer-events: none; }
+.clawd.on { opacity: 1; }
+/* the end: a tiny swell, then he implodes */
+.clawd.gone { opacity: 1; animation: implode 0.3s ease-in forwards; }
+@keyframes implode {
+  35% { transform: scale(1.12); opacity: 1; }
+  to { transform: scale(0); opacity: 0; }
+}
 .clawd rect { fill: #d97757; }
-.clawd .legs-a { animation: stepA 0.26s step-end 6; }
-.clawd .legs-b { opacity: 0; animation: stepB 0.26s step-end 6; }
-.clawd .lids { opacity: 0; animation: blink 4s step-end 2.4s infinite; }
-@keyframes walkin { from { translate: -140px 0; } to { translate: 0 0; } }
+/* legs: stepping while he types */
+.clawd .legs-b { opacity: 0; }
+.clawd.typing .legs-a { animation: stepA 0.26s step-end infinite; }
+.clawd.typing .legs-b { animation: stepB 0.26s step-end infinite; }
+.clawd .lids { opacity: 0; animation: blink 4s step-end 1s infinite; }
 @keyframes stepA { 0% { opacity: 1; } 50% { opacity: 0; } }
 @keyframes stepB { 0% { opacity: 0; } 50% { opacity: 1; } }
 @keyframes blink { 0% { opacity: 0; } 90% { opacity: 1; } 94% { opacity: 0; } }
-@keyframes bob { 50% { transform: translateY(-3px); } }
-/* types out one letter at a time: welcome.js wraps each letter in a span with its own delay, and each one just
-   switches to visible. every letter sits in its final place from the start, so nothing can be clipped
-   (clipping the line to its box cut off "Code" in Safari when the font loaded a little wider) */
-.pb-text { font-size: 0.85rem; white-space: nowrap; }
-.pb-text span { visibility: hidden; animation: reveal 0s forwards; }
-.pb-text b { color: #d97757; }
-@keyframes reveal { to { visibility: visible; } }
 @media (prefers-reduced-motion: reduce) {
-  .clawd, .clawd * { animation: none !important; }
-  .pb-text span { animation: none; visibility: visible; }
+  .pb-text span { visibility: visible; }
+  .clawd { display: none; }
 }
 .warn { margin: 0; font-weight: normal; font-size: 0.85rem; line-height: 1.45; }
 .warn b { font-weight: bold; }
@@ -317,6 +334,9 @@ body.viewing .row .count { cursor: default; }
 .how ol { margin: 0; padding-left: 1.4em; }
 .how li { margin-bottom: 4px; }
 .how b { font-weight: bold; }
+/* a greyed note right under the line before it */
+.how p.tight { margin-bottom: 0; }
+.how .soon { color: var(--muted); font-size: 0.75rem; }
 .how .done { display: grid; place-items: center; width: 100%; padding: 14px; margin-top: 18px; }
 .how .done .ic { width: 42px; height: 42px; }
 .fresh #helpDialog .legend .ic, .fresh #helpDialog .legend b { color: var(--bg); }
@@ -362,7 +382,7 @@ body.viewing .row .count { cursor: default; }
 .d-big.timer { font-size: 2rem; }
 .d-caret { display: inline-block; width: 1px; height: 0.9em; margin-left: 1px; vertical-align: -0.1em; background: var(--fg); animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-.d-pop, .d-zero {
+.d-pop, .d-zero, .d-menu {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -374,7 +394,12 @@ body.viewing .row .count { cursor: default; }
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
 }
-.d-pop.on, .d-zero.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.d-pop.on, .d-zero.on, .d-menu.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* the menu: a small box over the dimmed list, like the real one */
+.d-menu { display: flex; gap: 2px; padding: 4px; }
+.d-menu span { width: 30px; height: 30px; display: grid; place-items: center; }
+.d-menu .ic { width: 16px; height: 16px; }
+.d-menu .glyph { font-size: 1.05rem; }
 /* the stat page fills the whole demo screen, like the real one */
 .d-pop {
   left: 0;
@@ -403,6 +428,9 @@ body.viewing .row .count { cursor: default; }
 .d-ask { font-size: 0.75rem; color: var(--muted); }
 .d-zbtns { display: flex; gap: 24px; }
 .d-zero span { width: 34px; height: 34px; display: grid; place-items: center; }
+/* the cut between scenes: the screen dips to the background and back */
+.d-cut { position: absolute; inset: 0; background: var(--bg); opacity: 0; pointer-events: none; transition: opacity 0.45s ease-in-out; z-index: 3; }
+.d-cut.on { opacity: 1; }
 /* the pointing-hand cursor; its fingertip sits exactly on the target point */
 .d-finger {
   position: absolute;
@@ -591,6 +619,19 @@ body.viewing .row .count { cursor: default; }
 .acc-inner > :last-child { margin-bottom: 10px; }
 /* the step numbers sit left of the text; keep them inside the drop-down (it hides overflow while folding) */
 .acc-inner ol { padding-left: 2.2em; }
+/* "not your browser?": looks like the guide headings above it; tapping it fades it out and
+   the five browsers come down in one column, one after another */
+.others { margin: 0 0 4px; }
+.others-btn { width: 100%; padding: 10px 0; font-size: 0.95rem; text-align: left; transition: opacity 0.2s; }
+.others-btn.out { opacity: 0; }
+.others-btn[hidden] { display: none; }
+.browsers { list-style: none; margin: 0; padding: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.browsers[hidden] { display: none; }
+.browsers li { margin: 0; font-size: 0.95rem; opacity: 0; animation: lower 0.3s ease-out forwards; animation-delay: calc(var(--i) * 0.07s); }
+@keyframes lower { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .browsers li { animation: none; opacity: 1; }
+}
 
 /* info checkboxes: a small ⓘ after each label, for its bubble */
 .checks .check-ic { width: 14px; height: 14px; margin-left: 6px; color: var(--muted); cursor: help; }

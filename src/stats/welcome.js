@@ -38,29 +38,67 @@ const WELCOME_KEY = "stats.welcomed";
   px(lids, 12, 1);
 })();
 
-// "powered by Claude Code" types out: every letter becomes its own span, each shown a little after the last
-// (starts once the little guy has walked in). keeps the <b> around "Claude Code" for its colour
+// "powered by Claude Code" types out, one letter at a time, with the little guy as the cursor just after
+// the last letter, so the letters come out of him. once it's all typed he walks on a little past the text, swells a touch and implodes.
+// every letter becomes its own span (keeps the <b> around "Claude Code" for its colour)
 (function typeOut() {
-  const START = 1.7; // s
-  const EACH = 0.05; // s per letter
-  let i = 0;
+  const START = 600; // ms before the first letter (he shows up first)
+  const EACH = 70; // ms per letter
+  const text = document.querySelector(".pb-text");
+  const guy = $("clawd");
+  const letters = [];
   const wrap = (node) => {
     for (const n of [...node.childNodes]) {
+      if (n === guy) continue;
       if (n.nodeType !== Node.TEXT_NODE) {
         wrap(n);
         continue;
       }
-      const letters = document.createDocumentFragment();
+      const frag = document.createDocumentFragment();
       for (const ch of n.textContent) {
         const s = document.createElement("span");
         s.textContent = ch;
-        s.style.animationDelay = `${(START + i++ * EACH).toFixed(2)}s`;
-        letters.append(s);
+        letters.push(s);
+        frag.append(s);
       }
-      n.replaceWith(letters);
+      n.replaceWith(frag);
     }
   };
-  wrap(document.querySelector(".pb-text"));
+  wrap(text);
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return; // the CSS shows the whole line
+
+  // his left edge on the right edge of letter i: the letters come out of him and stay behind.
+  // -1 = where the first letter will be, before any are out (measured from the letters' boxes,
+  // the same way every time, so there's no jump between where he starts and where the text starts)
+  const place = (i) => {
+    const s = letters[Math.max(i, 0)];
+    guy.style.left = `${i < 0 ? s.offsetLeft : s.offsetLeft + s.offsetWidth}px`;
+  };
+
+  setTimeout(() => {
+    guy.style.transition = "none"; // appear in place, don't slide in
+    place(-1);
+    void guy.offsetWidth;
+    guy.style.transition = "";
+    guy.classList.add("on", "typing");
+  }, START - 300);
+  letters.forEach((s, i) =>
+    setTimeout(() => {
+      s.classList.add("on");
+      place(i);
+    }, START + i * EACH)
+  );
+  const end = START + letters.length * EACH;
+  // after the last letter he keeps walking, at the same pace, a little past the text,
+  // and as soon as he gets there he swells a touch and implodes
+  const STEP_AWAY = 6; // px
+  setTimeout(() => {
+    guy.style.left = `${parseFloat(guy.style.left) + STEP_AWAY}px`; // (an <svg> has no offsetLeft)
+  }, end);
+  setTimeout(() => {
+    guy.classList.remove("typing");
+    guy.classList.add("gone");
+  }, end + EACH);
 })();
 
 // "how & why?" → the how & why page, over the welcome page (back / Esc returns to the welcome page)
@@ -78,6 +116,16 @@ $("howDone").onclick = () => {
   updateBar(); // off-white again for the ? / import screen
 };
 $("welcomeDialog").addEventListener("cancel", (e) => e.preventDefault());
+
+// "not your browser?": fades out, then the five browsers come down in its place, one after another
+$("othersBtn").onclick = () => {
+  const btn = $("othersBtn");
+  btn.classList.add("out");
+  setTimeout(() => {
+    btn.hidden = true;
+    $("othersList").hidden = false;
+  }, 200);
+};
 
 // how & why: tap a guide's heading to open / close it; opening one closes the other in the same group
 for (const head of document.querySelectorAll("#howDialog .acc-head")) {
