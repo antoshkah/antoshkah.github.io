@@ -1,5 +1,7 @@
 // cloud sync (dev): log in to your Supabase account and the cloud becomes the main copy of your stats + settings.
-// - logging in (and every time the app opens or comes back into view) downloads the cloud's copy and replaces
+// - logging in: when both this device and the cloud have stats you choose which copy wins (sync to phone / to
+//   cloud); otherwise the side that has them wins. after that, every time the app opens or comes back into view,
+//   it downloads the cloud's copy and replaces
 //   this device's. the one exception: the cloud is empty (first login ever), then this device's goes up instead.
 // - every change after that is an upload. made offline? it's remembered ("pending") and uploaded as soon as
 //   there's a connection, before anything is downloaded, so offline changes are never lost.
@@ -335,7 +337,7 @@ $("copyShare").onclick = async () => {
 };
 // stop sharing: the link stops working, and the username is free again
 $("stopShare").onclick = () =>
-  ask("delete view?", async () => {
+  ask("deactivate live view?", async () => {
     try {
       await rest("shares?user_id=not.is.null", { method: "DELETE" });
       shareName = null;
@@ -355,7 +357,11 @@ function renderAccount() {
   $("accountCloud").toggleAttribute("hidden", !inside); // (an <svg> has no .hidden property, only the attribute)
   if (inside) {
     $("accountEmail").textContent = session.user.email;
-    $("accountCloudIcon").setAttribute("href", prefer === "phone" ? "#i-phone" : "#i-cloud");
+    // the plug at the top: together while online, apart while offline (the winning side bright, see the tap above)
+    const plugTop = $("accountCloud");
+    plugTop.classList.toggle("plugged", !isOffline());
+    plugTop.classList.toggle("wins-phone", isOffline() && prefer === "phone");
+    plugTop.classList.toggle("wins-cloud", isOffline() && prefer !== "phone");
     $("accountState").textContent = cloudStatus();
     const shared = !!shareName;
     $("shareName").readOnly = shared;
@@ -380,9 +386,148 @@ $("accountBtn").onclick = () => {
   show($("accountDialog"));
   if (session) loadShare();
 };
-// logging in replaces this device's stats with the cloud's, so with stats here it asks first
+// ── registering: a new account, confirmed by email ──
+// "new? register" switches the form: a "repeat password" box appears and the plug makes an account instead of
+// logging in. Supabase emails a confirmation link; opening it comes back here (see confirmReturn below), and then you
+// log in as usual. (needs sign-ups switched on in Supabase, and this page's address in its allowed redirect URLs)
+let registerMode = false;
+function loginMsg(text, bad = false) {
+  $("loginMsg").textContent = text;
+  $("loginMsg").classList.toggle("bad", bad);
+}
+function setRegisterMode(on) {
+  registerMode = on;
+  $("loginRepeatField").hidden = !on;
+  $("loginRepeat").value = "";
+  $("loginPassword").setAttribute("autocomplete", on ? "new-password" : "current-password");
+  $("plugBtn").setAttribute("aria-label", on ? "Register" : "Connect");
+  $("loginMode").textContent = on ? "have an account? log in" : "new? register";
+  loginMsg("");
+}
+$("loginMode").onclick = () => setRegisterMode(!registerMode);
+// Supabase's messages, in the app's words
+function registerError(message) {
+  const m = message.toLowerCase();
+  if (m.includes("signups not allowed") || m.includes("signup is disabled")) return "registering is switched off for now.";
+  if (m.includes("already registered")) return "that email already has an account: log in instead.";
+  if (m.includes("rate limit")) return "too many sign-ups right now. try again in a while.";
+  if (m.includes("password")) return message.toLowerCase();
+  if (m.includes("email")) return "that doesn't look like an email address.";
+  return message;
+}
+async function register() {
+  const email = $("loginEmail").value.trim();
+  const password = $("loginPassword").value;
+  if (!email || !password) return;
+  if (password.length < 6) return loginMsg("password: at least 6 characters.", true);
+  if (password !== $("loginRepeat").value) return loginMsg("the two passwords don't match.", true);
+  loginMsg("sending…");
+  try {
+    // the link in the email brings you back to this page
+    const back = encodeURIComponent(location.origin + location.pathname);
+    const res = await fetch(`${SB_URL}/auth/v1/signup?redirect_to=${back}`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error_description || json.msg || json.message || `error ${res.status}`);
+    setRegisterMode(false); // back to logging in either way, the email still filled in
+    $("loginPassword").value = "";
+    // the email already has an account: with email confirmation on, Supabase doesn't say so outright (so no one can
+    // test which emails are signed up). it answers "ok" with a user that has no sign-in methods (identities: [])
+    // and sends no email. nothing about the existing account changes
+    const user = json.user || json;
+    if (Array.isArray(user.identities) && user.identities.length === 0) return loginMsg("user already exists. log in instead.", true);
+    loginMsg(`check ${email} for a link to confirm your account, then log in here.`);
+  } catch (e) {
+    if (/already registered/i.test(e.message)) {
+      // (with email confirmation off, Supabase does say it outright)
+      setRegisterMode(false);
+      $("loginPassword").value = "";
+      return loginMsg("user already exists. log in instead.", true);
+    }
+    loginMsg(e instanceof TypeError ? "no connection." : registerError(e.message), true);
+  }
+}
+// back from the confirmation email: Supabase sends you to this page with the result after a # in the address.
+// it also logs you in there, but connecting goes through the usual login (and its warning), so that's thrown away:
+// the account page opens, says it's confirmed, and you log in
+(function confirmReturn() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.has("access_token") && !h.has("error")) return;
+  history.replaceState(null, "", location.pathname + location.search); // tidy the address (and don't do this twice)
+  const token = h.get("access_token");
+  if (token) fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } }).catch(() => {});
+  const bad = h.has("error");
+  const text = !bad
+    ? "email confirmed. log in to connect."
+    : h.get("error_code") === "otp_expired"
+      ? "that confirmation link has expired. register again to get a new one."
+      : `that link didn't work: ${(h.get("error_description") || h.get("error")).replace(/\+/g, " ")}`;
+  setTimeout(() => {
+    if (session) return; // already connected on this device: nothing to do
+    renderAccount();
+    show($("accountDialog"));
+    loginMsg(text, bad);
+  }, 0);
+})();
+
+// ── logging in: which way the first sync goes ──
+// does the cloud have any stats for this account yet? (checked with the new login, before it's kept)
+async function cloudHasStats(token) {
+  const res = await fetch(`${SB_URL}/rest/v1/stats?select=id&limit=1`, { headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`error ${res.status}`);
+  return (await res.json()).length > 0;
+}
+// both this device and the cloud have stats: one page, in steps (see the markup). the login fades to black, a short
+// pause, then "sync to" 📱 ☁. tap one: an arrow shows where the data goes, "sync to" turns into the warning
+// (it deletes the other side's data) and 👍 👎 appear. 👍 connects; 👎 back to the choice; exit = don't connect
+let syncChoice = null; // { connect, cancel } while the page is open
+let syncPick = null; // null, "phone" (the cloud's copy comes down) or "cloud" (this device's goes up)
+function chooseSync(connect, cancel) {
+  syncChoice = { connect, cancel };
+  setSyncPick(null);
+  show($("syncChoiceDialog"));
+}
+function setSyncPick(to) {
+  syncPick = to;
+  const page = $("syncChoiceDialog");
+  page.classList.toggle("picked", !!to);
+  page.classList.toggle("to-phone", to === "phone");
+  page.classList.toggle("to-cloud", to === "cloud");
+  if (to) $("syncWarnText").textContent = to === "phone" ? "delete all local data?" : "delete all cloud data?";
+}
+// fades out (0.3s), then closes, and only then is the choice acted on: the download waits while another page is
+// open (cloudStart), so connecting while this page is still fading would put the download off
+function syncChoiceDone(to) {
+  const choice = syncChoice;
+  syncChoice = null;
+  const page = $("syncChoiceDialog");
+  page.classList.add("fading");
+  setTimeout(() => {
+    page.close();
+    page.classList.remove("fading");
+    if (!choice) return;
+    if (to) choice.connect(to);
+    else choice.cancel();
+  }, 300);
+}
+$("syncToPhone").onclick = () => setSyncPick("phone");
+$("syncToCloud").onclick = () => setSyncPick("cloud");
+$("syncYes").onclick = () => syncPick && syncChoiceDone(syncPick);
+$("syncNo").onclick = () => setSyncPick(null);
+$("syncChoiceBack").onclick = () => syncChoiceDone(null);
+$("syncChoiceDialog").addEventListener("cancel", (e) => {
+  e.preventDefault();
+  syncChoiceDone(null);
+});
+
+// logging in: the email and password are checked (the plug goes in meanwhile), then the first sync's direction
+// is settled: by itself when one side is empty, otherwise you choose (chooseSync above)
 $("loginForm").onsubmit = (e) => {
   e.preventDefault();
+  if (registerMode) return register();
   const email = $("loginEmail").value.trim();
   const password = $("loginPassword").value;
   if (!email || !password) return;
@@ -393,52 +538,76 @@ $("loginForm").onsubmit = (e) => {
   authCall("grant_type=password", { email, password }).then(
     async (newSession) => {
       await landed;
-      const connect = () => {
+      // which way the first sync goes. "phone" = sync to phone: the cloud's copy comes down and replaces this
+      // device's. "cloud" = sync to cloud: this device's copy goes up and replaces the cloud's
+      const connect = (to) => {
         storeSession(newSession);
         $("loginPassword").value = "";
-        setPending(false); // whatever was here before is replaced by the cloud's copy
+        if (to === "cloud") {
+          setPrefer("phone"); // this device's copy wins (see cloudStart)
+          setPending(true);
+        } else {
+          setPrefer("cloud");
+          setPending(false); // whatever was here is replaced by the cloud's copy
+        }
         renderAccount();
         loadShare();
         cloudStart();
       };
-      let yes = false;
-      ask('<span class="ask-head"><svg class="ic"><use href="#i-warn" /></svg><b>warning</b></span>connect will clear all local data.', () => {
-        yes = true;
-        connect();
-      }, true);
-      $("zeroDialog").addEventListener("close", () => {
-        if (yes) return;
+      const cancel = () => {
         plug.classList.remove("plugged");
         // not using it: end that session on Supabase's side too (best effort)
         fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${newSession.access_token}` } }).catch(() => {});
-      }, { once: true });
+      };
+      // only ask when both sides have stats (only then is something overwritten). cloud empty (a new account):
+      // this device's go up. this device empty: the cloud's come down. can't check: ask
+      let cloudHas = true;
+      try {
+        cloudHas = await cloudHasStats(newSession.access_token);
+      } catch {}
+      if (!cloudHas) return connect("cloud");
+      if (!stats.length) return connect("phone");
+      chooseSync(connect, cancel);
     },
     async (err) => {
       await landed;
-      plug.classList.remove("plugged"); // didn't work: it comes back out
-      // wrong email or password: both cleared, and their placeholders go red for a moment.
-      // no connection: what you typed stays, in red for a moment
+      // didn't work: while it's still plugged in, it turns red and jitters; then it comes back apart (and fades back)
+      plug.classList.remove("fail");
+      void plug.offsetWidth; // (so it plays again on a second miss)
+      plug.classList.add("fail");
+      setTimeout(() => plug.classList.remove("plugged"), 500); // after the jitter (0.45s)
+      setTimeout(() => plug.classList.remove("fail"), 1300); // red until it's apart, then back to normal
+      // wrong email or password: both fields cleared. no connection: what you typed stays
       const fields = [$("loginEmail"), $("loginPassword")];
       if (!(err instanceof TypeError)) for (const f of fields) f.value = "";
-      for (const f of fields) f.classList.add("bad");
-      setTimeout(() => fields.forEach((f) => f.classList.remove("bad")), 1800);
     }
   );
 };
-// log out: asks first, then the page fades and the cloud implodes. then everything on this device is cleared
-// (stats, settings, the lot: they're safe in the cloud) and the app reloads onto the normal, empty + screen
+// log out: asks whether to keep this device's stats and settings. 👍 keep them (logged out, they just stop syncing),
+// 👎 clear them (and the app reloads onto the empty + screen). tapping away cancels: still connected.
+// either way the page fades and the cloud implodes first, and a change not sent yet goes up before anything else
 $("logoutBtn").onclick = () =>
-  ask('<span class="ask-head"><svg class="ic"><use href="#i-warn" /></svg><b>warning</b></span>disconnect will clear all local data.', () => {
-    const page = $("accountDialog");
-    page.classList.add("leaving");
-    // a change not sent yet goes up first (if there's a connection), so clearing this device doesn't lose it
-    const sent = pending && !isOffline() ? cloudPush() : Promise.resolve();
-    const animated = new Promise((ok) => setTimeout(ok, 1500)); // 0.6s fade, then the 0.6s implode (starts at 0.75s), then a beat
-    Promise.all([sent, animated]).then(() => {
-      logOut();
-      wipeLocal(true); // and reloads (keeping the first-visit flags: no welcome again)
-    });
-  }, true);
+  ask(
+    '<span class="ask-head"><svg class="ic"><use href="#i-warn" /></svg><b>disconnect</b></span>keep local data?',
+    () => disconnect(true),
+    true,
+    () => disconnect(false),
+    ["keep", "delete"] // words, not 👍 / 👎
+  );
+function disconnect(keep) {
+  const page = $("accountDialog");
+  page.classList.add("leaving");
+  const sent = pending && !isOffline() ? cloudPush() : Promise.resolve();
+  const animated = new Promise((ok) => setTimeout(ok, 1500)); // 0.6s fade, then the 0.6s implode (starts at 0.75s), then a beat
+  Promise.all([sent, animated]).then(() => {
+    logOut();
+    if (!keep) return wipeLocal(true); // and reloads (keeping the first-visit flags: no welcome again)
+    // kept: back to your list, as it was (just not syncing any more)
+    page.classList.remove("leaving");
+    page.close();
+    render();
+  });
+}
 function logOut() {
   const token = session && session.access_token;
   clearTimeout(pushTimer);
@@ -515,6 +684,7 @@ $("accountBack").onclick = () => {
 // sync when the app opens, when the connection comes back, and when you come back to the app
 window.addEventListener("online", () => {
   offline = false;
+  renderAccount(); // the plug at the top goes back together straight away
   cloudStart();
 });
 document.addEventListener("visibilitychange", () => {

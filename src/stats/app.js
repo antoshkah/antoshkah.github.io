@@ -589,17 +589,29 @@ $("minusBtn").onclick = () => change(-1);
 
 // the yes / no page (reset, delete, replacing stats on import). no onYes = just a message with a back button
 let onYes = null;
+let onNo = null; // optional: 👎 does something of its own (tapping away still just cancels)
 // html = true: the text is our own markup (e.g. a <b> word), regular weight so the bold part stands out
-function ask(text, yes = null, html = false) {
+// words: ["keep", "delete"] shows those instead of 👍 / 👎 (then the second one is the red, destructive one)
+function ask(text, yes = null, html = false, no = null, words = null) {
   onYes = yes;
+  onNo = no;
   $("confirmText")[html ? "innerHTML" : "textContent"] = text;
   $("confirmText").classList.toggle("rich", html);
   $("yesBtn").hidden = !yes;
   $("noIcon").setAttribute("href", yes ? "#i-down" : "#i-exit");
+  $("zeroDialog").classList.toggle("worded", !!words);
+  $("yesWord").textContent = words ? words[0] : "";
+  $("noWord").textContent = words ? words[1] : "";
+  $("yesBtn").setAttribute("aria-label", words ? words[0] : "Yes");
+  $("noBtn").setAttribute("aria-label", words ? words[1] : "No");
   show($("zeroDialog"));
 }
-$("noBtn").onclick = () => $("zeroDialog").close();
-// tapping any empty space on the yes / no page is the same as no
+$("noBtn").onclick = () => {
+  const no = onNo;
+  $("zeroDialog").close();
+  if (no) no();
+};
+// tapping any empty space on the yes / no page closes it (cancel: no 👎 action)
 $("zeroDialog").addEventListener("click", (e) => {
   if (!e.target.closest("button")) $("zeroDialog").close();
 });

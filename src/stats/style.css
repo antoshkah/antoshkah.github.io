@@ -212,11 +212,11 @@ body.viewing .row .count { cursor: default; }
 /* the whole app is bold, so the export question goes regular to let its key words stand out */
 .confirm-text { font-weight: normal; }
 .confirm-text b { font-weight: bold; color: var(--fg); }
-#confirmText.rich { font-weight: normal; }
-#confirmText.rich b { font-weight: bold; color: var(--fg); }
+#confirmText.rich, .sync-warn { font-weight: normal; }
+#confirmText.rich b, .sync-warn b { font-weight: bold; color: var(--fg); }
 /* a heading above the question: caution symbol, then the bold word, all centred */
-#confirmText .ask-head { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; color: var(--fg); }
-#confirmText .ask-head .ic { width: 30px; height: 30px; }
+#confirmText .ask-head, .sync-warn .ask-head { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; color: var(--fg); }
+#confirmText .ask-head .ic, .sync-warn .ask-head .ic { width: 30px; height: 30px; }
 #confirmText, .confirm-text { padding: 14px 8px 6px; font-size: 0.9rem; color: var(--muted); text-align: center; overflow-wrap: anywhere; }
 
 /* one stat, full screen: tap any empty space to go back */
@@ -721,18 +721,22 @@ body.viewing .row .count { cursor: default; }
 .share-icons { justify-content: center; gap: 8px; }
 /* log out + back, side by side in the middle */
 .account-icons { justify-content: center; gap: 24px; }
-/* logged in: a small cloud at the top of the page */
-#accountDialog .account-cloud { flex: none; width: 34px; height: 34px; margin-bottom: 18px; }
+/* logged in: the phone + cloud plug at the top of the page (same drawing as the login's), plugged while online */
+#accountDialog .account-cloud { flex: none; width: 92px; height: 27px; margin-bottom: 18px; cursor: pointer; }
 #accountDialog .account-cloud[hidden] { display: none; }
-#accountDialog .account-cloud { cursor: pointer; }
+.account-cloud.plugged .plug-a { transform: translateX(14.5px); }
+.account-cloud.plugged .plug-b { transform: translateX(-14.5px); }
+/* offline (apart): the side that wins when back online stays bright, the other dims */
+.account-cloud .plug-a, .account-cloud .plug-b { transition: transform 0.35s cubic-bezier(0.5, 0, 0.75, 0), opacity 0.25s; }
+.account-cloud.wins-phone .plug-b, .account-cloud.wins-cloud .plug-a { opacity: 0.35; }
 /* tapped while online (nothing to choose): a quick shake */
 #accountDialog .account-cloud.nope { animation: nope 0.3s; }
 @keyframes nope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
-/* logging out: everything but the cloud fades, then the cloud swells a touch and implodes (same as the welcome guy),
-   then the login page fades in */
+/* logging out: everything else fades, then the phone and the cloud come apart, and fade away too */
 #accountDialog > * { transition: opacity 0.3s; }
 #accountDialog.leaving > :not(.account-cloud) { opacity: 0; transition: opacity 0.6s; pointer-events: none; }
-#accountDialog.leaving .account-cloud { animation: implode 0.6s ease-in 0.75s forwards; }
+#accountDialog.leaving .account-cloud .plug-a, #accountDialog.leaving .account-cloud .plug-b { transform: none; transition-delay: 0.65s; }
+#accountDialog.leaving .account-cloud { opacity: 0; transition: opacity 0.4s ease-in 1.05s; }
 
 .hms { display: flex; justify-content: center; gap: 22px; margin: 10px 0 20px; }
 .hms label { display: flex; align-items: baseline; gap: 3px; color: var(--muted); font-size: 1.4rem; }
@@ -766,3 +770,69 @@ body.viewing .row .count { cursor: default; }
 .star-hint { display: none; margin-top: -6px; font-size: 0.75rem; font-weight: normal; color: var(--muted); }
 .empty .star-hint { display: block; }
 .star[hidden] + .star-hint { display: none; }
+/* login page: "new? register" / "have an account? log in", small and grey under the plug */
+.login-mode { padding: 4px 8px; font-size: 0.8rem; font-weight: normal; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.login input[hidden] { display: none; }
+.login-msg.bad { color: var(--danger); }
+#loginMsg:empty { display: none; }
+/* login fields: the icon (envelope / key / repeat + key) sits in the middle of the field while it's empty, where
+   placeholder text would be. it goes as soon as something's typed, and turns red with the field on a failed login */
+.login .field { position: relative; display: block; width: 100%; }
+.login .field[hidden] { display: none; }
+.login .field .ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 3px; color: var(--muted); pointer-events: none; transition: opacity 0.15s, color 0.3s; }
+.login .field .ph .ic { width: 27px; height: 27px; }
+.login .field input:not(:placeholder-shown) + .ph { opacity: 0; }
+.login .field input.bad + .ph { color: var(--danger); }
+/* failed login: still plugged in, the plug (phone · cloud) turns red and jitters; then it comes apart */
+.plug-btn.fail { color: var(--danger); }
+.plug-btn.fail .plug { animation: plugjitter 0.45s ease-in-out; }
+@keyframes plugjitter {
+  15% { transform: translateX(-4px); }
+  30% { transform: translateX(4px); }
+  45% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-1.5px); }
+  90% { transform: translateX(1px); }
+}
+.plug-btn { transition: color 0.25s; }
+/* the yes / no page with words instead of 👍 / 👎 (e.g. disconnect: keep / delete): the second one is the red one */
+.ask-word { display: none; }
+#zeroDialog.worded .ask-word { display: inline; }
+#zeroDialog.worded #yesBtn .ic, #zeroDialog.worded #noBtn .ic { display: none; }
+#zeroDialog.worded .icons button { width: auto; padding: 8px 12px; font-size: 1rem; }
+#zeroDialog.worded #yesBtn { color: var(--fg); }
+#zeroDialog.worded #noBtn { color: var(--danger); }
+/* "(this action cannot be undone)", on its own line under the question, the words underlined */
+.undone { display: block; margin-top: 4px; }
+.undone u { text-underline-offset: 3px; }
+#syncChoiceDialog.fading { opacity: 0; transition: opacity 0.3s ease-in; }
+#syncChoiceDialog::backdrop { background: transparent; }
+@keyframes pagefadein { from { opacity: 0; } }
+
+/* logging in with stats on both sides: one page, in steps (see the markup) */
+/* 1. the page (black) fades in over the login: the login fades away. then a short empty pause, then its content */
+#syncChoiceDialog[open] { animation: pagefadein 0.4s ease-out; }
+#syncChoiceDialog[open] .sync-page { animation: pagefadein 0.45s ease-out 0.75s both; }
+.sync-page { width: min(100%, 300px); display: flex; flex-direction: column; align-items: center; }
+/* "sync to" and the warning share one spot (stacked in the same grid cell) and cross-fade */
+.sync-head { display: grid; place-items: center; margin-bottom: 18px; }
+.sync-head > * { grid-area: 1 / 1; transition: opacity 0.35s ease; }
+.sync-title { font-size: 0.9rem; color: var(--muted); }
+.sync-warn { opacity: 0; pointer-events: none; padding: 0; }
+#syncChoiceDialog.picked .sync-title { opacity: 0; }
+#syncChoiceDialog.picked .sync-warn { opacity: 1; }
+/* 📱  →  ☁ : the arrow sits between them (always taking its space, so nothing shifts), shown once one's picked */
+.sync-choice { justify-content: center; align-items: center; gap: 18px; margin: 8px 0 34px; }
+.sync-choice button { width: 64px; height: 64px; transition: opacity 0.3s; }
+.sync-choice button .ic { width: 38px; height: 38px; }
+.sync-choice .sub { font-size: 0.8rem; }
+.sync-arrow { width: 34px; height: 34px; color: var(--fg); opacity: 0; transition: opacity 0.3s, rotate 0.3s; }
+#syncChoiceDialog.picked .sync-arrow { opacity: 1; }
+#syncChoiceDialog.to-phone .sync-arrow { rotate: 180deg; } /* ☁ → 📱: the cloud's copy comes down */
+/* the side not picked dims a little */
+#syncChoiceDialog.to-phone #syncToCloud, #syncChoiceDialog.to-cloud #syncToPhone { opacity: 0.45; }
+/* 👍 👎: only once one's picked (they keep their space, so nothing jumps) */
+.sync-confirm { justify-content: center; gap: 36px; margin-bottom: 10px; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
+#syncChoiceDialog.picked .sync-confirm { opacity: 1; pointer-events: auto; }
+/* the sync page's warning: same look as the yes / no page's (⚠ warning on top, the question, the undone line) */
+.sync-warn { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; color: var(--muted); text-align: center; }
