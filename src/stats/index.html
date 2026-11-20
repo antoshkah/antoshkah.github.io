@@ -130,7 +130,12 @@
       <!-- restore: an undo arrow (different from reset's circle) -->
       <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="square" stroke-linejoin="miter" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></symbol>
+      <!-- stop sharing: the eye, with a red cross over it -->
+      <symbol id="i-eye-x" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /><path d="M5 5l14 14M19 5L5 19" style="stroke: var(--danger)" /></symbol>
       <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.3 9.1 4.5 4.5 0 0 0 7 18Z" /></symbol>
+      <!-- log out: the cloud, with a red line through it -->
+      <symbol id="i-cloud-off" viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.3 9.1 4.5 4.5 0 0 0 7 18Z" /><path d="M4 4l16 16" style="stroke: var(--danger)" /></symbol>
       <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
       <symbol id="i-colour" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
       <!-- the walkthrough's pointing glove, as an outline -->
@@ -212,6 +217,8 @@
 
     <!-- menu → cloud: log in to sync your stats (dev: one account, sign-ups are off in Supabase). see cloud.js -->
     <dialog id="accountDialog" class="page">
+      <!-- small cloud at the top; on log out the rest fades away and it implodes -->
+      <svg class="ic account-cloud" id="accountCloud" aria-hidden="true"><use href="#i-cloud" /></svg>
       <form class="login" id="loginForm">
         <input id="loginEmail" type="email" autocomplete="username" placeholder="email" aria-label="Email" />
         <input id="loginPassword" type="password" autocomplete="current-password" placeholder="password" aria-label="Password" />
@@ -223,18 +230,22 @@
       <div class="account-in" id="accountIn" hidden>
         <div class="account-email" id="accountEmail"></div>
         <div class="login-msg" id="accountState"></div>
-        <!-- live view: a read-only page (live.html) anyone with the link can watch -->
-        <button class="account-out" id="shareBtn">share live view</button>
-        <div class="share-on" id="shareOn" hidden>
-          <a class="share-link" id="shareLink" target="_blank" rel="noopener"></a>
-          <div class="share-btns">
-            <button id="copyShare">share link</button>
-            <button id="stopShare" class="danger">stop sharing</button>
+        <!-- live view: a read-only page (live.html?u=username) anyone with the link can watch.
+             not shared: type a username, tap the eye. shared: open it · copy the link · stop sharing (eye, red cross) -->
+        <div class="share">
+          <input class="share-name" id="shareName" maxlength="20" placeholder="view id" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" aria-label="View id for your live view" />
+          <div class="icons share-icons">
+            <button id="shareBtn" aria-label="Share live view"><svg class="ic"><use href="#i-eye" /></svg></button>
+            <button id="openShare" aria-label="Open live view" hidden><svg class="ic"><use href="#i-eye" /></svg></button>
+            <button id="copyShare" aria-label="Copy link" hidden><svg class="ic"><use id="copyIcon" href="#i-copy" /></svg></button>
+            <button id="stopShare" aria-label="Delete view" hidden><svg class="ic"><use href="#i-eye-x" /></svg></button>
           </div>
+          <div class="login-msg" id="shareMsg"></div>
         </div>
-        <button class="account-out" id="logoutBtn">log out</button>
       </div>
-      <div class="icons">
+      <!-- log out (logged in only: a cloud with a red line through it) next to back -->
+      <div class="icons account-icons">
+        <button id="logoutBtn" aria-label="Log out" hidden><svg class="ic"><use href="#i-cloud-off" /></svg></button>
         <button id="accountBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
     </dialog>

@@ -1,5 +1,5 @@
 // live view: someone's shared stats, read-only, updating the moment they change them.
-// opened as live.html?u=<share id> (the link from the app's cloud page). anyone with the link can watch.
+// opened as live.html?u=<username> (the link from the app's cloud page). anyone with the link can watch.
 // timers tick here on their own (from elapsed + since), so only starts, pauses, taps etc. come over the wire.
 
 const SB_URL = "https://ocgnkpvoligvygakairp.supabase.co";
@@ -59,12 +59,12 @@ setInterval(() => {
 }, 500);
 
 (async function start() {
-  const shareId = new URLSearchParams(location.search).get("u");
-  if (!shareId || !window.supabase) return setState(window.supabase ? "no link" : "offline");
+  const username = (new URLSearchParams(location.search).get("u") || "").toLowerCase();
+  if (!username || !window.supabase) return setState(window.supabase ? "no link" : "offline");
   const db = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
 
-  // whose stats: the share link points at a user
-  const { data: share, error } = await db.from("shares").select("user_id").eq("id", shareId).maybeSingle();
+  // whose stats: the username in the link points at a user
+  const { data: share, error } = await db.from("shares").select("user_id").eq("username", username).maybeSingle();
   if (error) return setState("couldn't load");
   if (!share) return setState("not shared (anymore)");
   const uid = share.user_id;

@@ -7,7 +7,7 @@
 // also: sharing a live view (live.html, a read-only page anyone with the link can watch).
 //
 // tables (see the SQL in the setup): stats (user_id, id, data, updated_at), settings (user_id, data, updated_at),
-// shares (id, user_id). row-level security: you only change your own rows; a shared user's stats can be read by anyone.
+// shares (id, user_id, username). row-level security: you only change your own rows; a shared user's stats can be read by anyone.
 
 // the publishable key is meant to be public; what protects the data is row-level security
 const SB_URL = "https://ocgnkpvoligvygakairp.supabase.co";
@@ -99,7 +99,9 @@ async function rest(path, { method = "GET", body, prefer } = {}) {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    throw new Error(json.message || `error ${res.status}`);
+    const err = new Error(json.message || `error ${res.status}`);
+    err.code = json.code; // e.g. "23505" = already taken (a unique column)
+    throw err;
   }
   return res.status === 204 ? null : res.json().catch(() => null);
 }
@@ -187,18 +189,20 @@ function cloudStatus() {
   return `online · ${when()}`;
 }
 
-// sync (app opens, comes back into view, connection returns, just logged in):
+// sync (app opens, comes back into view, connection returns, just logged in, and every minute while open):
 // unsent changes on this device → upload them. otherwise → download the cloud's copy and use it here
-// (cloud empty, i.e. the very first login → upload this device's instead)
+// (cloud empty, i.e. the very first login → upload this device's instead). quiet = the once-a-minute check:
+// no "syncing…" flash, and the list is only redrawn if something actually changed
 let syncRunning = false;
-async function cloudStart() {
+const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+async function cloudStart(quiet = false) {
   if (!session || syncRunning) return;
   if (pending) return cloudPush();
   // in the middle of something (a stat page, a yes / no, adding time…): don't swap the stats out from
   // under it. it downloads the next time instead
   if (document.querySelector("dialog[open]:not(#accountDialog):not(#menuDialog)")) return;
   syncRunning = true;
-  setSyncing();
+  if (!quiet) setSyncing();
   let cloud;
   try {
     cloud = await pullAll();
@@ -210,9 +214,13 @@ async function cloudStart() {
   // a change made while it was downloading wins: send that instead
   if (pending) return cloudPush();
   if (!cloud.stats.length) return cloudPush();
+  // already the same here: nothing to redraw (a redraw mid-hold would cancel the hold)
+  const cloudStats = cloud.stats.map(normalize);
+  const byId = (list) => [...list].sort((a, b) => (a.id < b.id ? -1 : 1));
+  if (sameJson(byId(cloudStats), byId(stats)) && (!cloud.settings || sameJson(cloud.settings, settings))) return synced();
   applying = true;
   try {
-    stats = cloud.stats.map(normalize);
+    stats = cloudStats;
     save();
     if (cloud.settings) {
       try {
@@ -229,60 +237,90 @@ async function cloudStart() {
   synced();
 }
 
-// ── live view: a share link to live.html?u=<share id>, read-only, for anyone who has it ──
-let shareId = null; // null = not shared (or not known yet)
-const shareUrl = () => new URL(`live.html?u=${shareId}`, location.href).href;
+// ── live view: live.html?u=<username>, read-only, for anyone who has the link ──
+// not shared: type a username, tap the eye. shared: the username (fixed), then open · copy link · stop sharing
+let shareName = null; // null = not shared (or not known yet)
+const USERNAME = /^[a-z0-9_-]{3,20}$/;
+const shareUrl = () => new URL(`live.html?u=${encodeURIComponent(shareName)}`, location.href).href;
+const shareMsg = (text) => ($("shareMsg").textContent = text);
 async function loadShare() {
   try {
-    const rows = await rest("shares?select=id");
-    shareId = rows[0] ? rows[0].id : null;
+    const rows = await rest("shares?select=username");
+    shareName = rows[0] ? rows[0].username : null;
   } catch {}
   renderAccount();
 }
+// usernames are lowercase: letters, numbers, _ and -
+$("shareName").addEventListener("input", () => {
+  const el = $("shareName");
+  el.value = el.value.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  shareMsg("");
+});
+$("shareName").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("shareBtn").click();
+});
 $("shareBtn").onclick = async () => {
+  const name = $("shareName").value;
+  if (!USERNAME.test(name)) return shareMsg("3–20 letters, numbers, _ or -");
+  shareMsg("…");
   try {
-    const rows = await rest("shares", { method: "POST", body: { user_id: session.user.id }, prefer: "return=representation" });
-    shareId = rows[0].id;
+    await rest("shares", { method: "POST", body: { user_id: session.user.id, username: name }, prefer: "return=minimal" });
+    shareName = name;
+    // a little "view created!" under the icons, gone after 3 seconds (unless something else replaced it)
+    shareMsg("view created!");
+    setTimeout(() => {
+      if ($("shareMsg").textContent === "view created!") shareMsg("");
+    }, 3000);
   } catch (e) {
-    $("accountState").textContent = e instanceof TypeError ? "no connection" : `couldn't share: ${e.message}`;
-    return;
+    if (e instanceof TypeError) return shareMsg("no connection");
+    // "23505" = already taken. which one: your account already has a view (one each), or the username is someone's
+    if (e.code === "23505" && /user_id/.test(e.message)) {
+      shareMsg("you already have a view");
+      return loadShare(); // show it
+    }
+    return shareMsg(e.code === "23505" ? "that view id is taken" : `couldn't share: ${e.message}`);
   }
+  $("shareName").blur();
   renderAccount();
 };
-// stop sharing: the link stops working (sharing again makes a new link)
+$("openShare").onclick = () => window.open(shareUrl(), "_blank", "noopener");
+// copy: the link to the clipboard, and the icon turns into a tick for a moment
+$("copyShare").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl());
+    $("copyIcon").setAttribute("href", "#i-check");
+    setTimeout(() => $("copyIcon").setAttribute("href", "#i-copy"), 1200);
+  } catch {
+    shareMsg(shareUrl()); // no clipboard access: show it so it can be copied by hand
+  }
+};
+// stop sharing: the link stops working, and the username is free again
 $("stopShare").onclick = () =>
-  ask("stop sharing? the link stops working for everyone who has it.", async () => {
+  ask("delete view?", async () => {
     try {
-      await rest("shares?id=not.is.null", { method: "DELETE" });
-      shareId = null;
+      await rest("shares?user_id=not.is.null", { method: "DELETE" });
+      shareName = null;
+      shareMsg("");
     } catch (e) {
-      $("accountState").textContent = e instanceof TypeError ? "no connection" : `couldn't stop: ${e.message}`;
+      shareMsg(e instanceof TypeError ? "no connection" : `couldn't stop: ${e.message}`);
     }
     renderAccount();
   });
-$("copyShare").onclick = async () => {
-  try {
-    if (navigator.share) await navigator.share({ url: shareUrl(), title: "stats (live)" });
-    else await navigator.clipboard.writeText(shareUrl());
-    if (!navigator.share) $("copyShare").textContent = "copied";
-    setTimeout(() => ($("copyShare").textContent = "share link"), 1500);
-  } catch {}
-};
 
 // ── the account page (menu → cloud) ──
 function renderAccount() {
   const inside = !!session;
   $("loginForm").hidden = inside;
   $("accountIn").hidden = !inside;
+  $("logoutBtn").hidden = !inside;
   if (inside) {
     $("accountEmail").textContent = session.user.email;
     $("accountState").textContent = cloudStatus();
-    $("shareBtn").hidden = !!shareId;
-    $("shareOn").hidden = !shareId;
-    if (shareId) {
-      $("shareLink").href = shareUrl();
-      $("shareLink").textContent = shareUrl();
-    }
+    const shared = !!shareName;
+    $("shareName").readOnly = shared;
+    if (shared) $("shareName").value = shareName;
+    $("shareBtn").hidden = shared;
+    for (const id of ["openShare", "copyShare", "stopShare"]) $(id).hidden = !shared;
   }
 }
 // while the page is open, keep the status current ("online" turns into "online · last sync …" as time passes)
@@ -325,18 +363,30 @@ $("loginForm").onsubmit = (e) => {
   if (stats.length) ask("logging in replaces the stats on this device with the ones in your cloud. export first if you want to keep them.", logIn);
   else logIn();
 };
-$("logoutBtn").onclick = async () => {
+// log out: asks first, then the page fades, the cloud implodes, and it closes
+$("logoutBtn").onclick = () =>
+  ask("log out?", () => {
+    const page = $("accountDialog");
+    page.classList.add("leaving");
+    setTimeout(() => {
+      logOut();
+      page.close();
+      page.classList.remove("leaving");
+    }, 1250); // 0.5s fade, then the 0.5s implode (starts at 0.6s)
+  });
+function logOut() {
   const token = session && session.access_token;
   clearTimeout(pushTimer);
   storeSession(null);
   setPending(false);
   syncing = false;
   syncError = "";
-  shareId = null;
+  shareName = null;
+  $("shareName").value = "";
   renderAccount();
   // tell Supabase too (best effort; the stats on this device stay as they are)
   if (token) fetch(`${SB_URL}/auth/v1/logout`, { method: "POST", headers: { apikey: SB_KEY, Authorization: `Bearer ${token}` } }).catch(() => {});
-};
+}
 $("accountBack").onclick = () => $("accountDialog").close();
 
 // sync when the app opens, when the connection comes back, and when you come back to the app
@@ -347,4 +397,8 @@ window.addEventListener("online", () => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") cloudStart();
 });
+// and quietly once a minute while the app is open: picks up changes from your other devices
+setInterval(() => {
+  if (document.visibilityState === "visible" && navigator.onLine) cloudStart(true);
+}, 60 * 1000);
 setTimeout(cloudStart, 0);
