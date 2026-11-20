@@ -93,99 +93,53 @@
   applyStoredTheme();
 })();
 
+// page changes: leaving, the page fades out (a back arrow also nudges left), a short empty beat, then the page we
+// land on fades in. the landing page is already hidden by a tiny script in its <head> (adds .page-enter to <html>),
+// so it never flashes before the fade
 (function () {
-  const SOUND_STORAGE_KEY = "site-sound-track";
-  const soundToggleEl = document.getElementById("sound-toggle");
-  const soundMenuEl = document.getElementById("sound-menu");
-  const audioEl = document.getElementById("site-sound-audio");
+  const FADE_KEY = "site-fade-in";
+  const OUT_MS = 280; // fade out (and arrow nudge)
+  const GAP_MS = 180; // empty beat before leaving
+  const IN_DELAY_MS = 120; // empty beat before the new page fades in
+  const root = document.documentElement;
+  const main = document.querySelector("main");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  if (!soundToggleEl || !soundMenuEl || !audioEl) {
-    return;
+  if (root.classList.contains("page-enter")) {
+    setTimeout(() => root.classList.remove("page-enter"), reduced ? 0 : IN_DELAY_MS);
   }
 
-  const TRACKS = {
-    1: "../misc/sounds/short/03-White-Noise-10min.mp3",
-    2: "../misc/sounds/short/07-PinkNoise-10min.mp3",
-    3: "../misc/sounds/short/25-Ocean-10min.mp3",
-    4: "../misc/sounds/short/32-Waterfall-10min.mp3",
-    5: "../misc/sounds/short/42-Rain-10min.mp3",
-  };
-
-  const menuItems = soundMenuEl.querySelectorAll(".sound-menu-item");
-
-  function openMenu() {
-    soundMenuEl.hidden = false;
-    soundToggleEl.setAttribute("aria-expanded", "true");
-  }
-
-  function closeMenu() {
-    soundMenuEl.hidden = true;
-    soundToggleEl.setAttribute("aria-expanded", "false");
-  }
-
-  function highlightSelected(track) {
-    menuItems.forEach((item) => {
-      item.classList.toggle("is-selected", item.dataset.track === String(track));
-    });
-  }
-
-  function selectTrack(track) {
-    if (track === "0") {
-      audioEl.pause();
-      audioEl.removeAttribute("src");
-      localStorage.removeItem(SOUND_STORAGE_KEY);
-      highlightSelected("0");
-      return;
-    }
-
-    const src = TRACKS[track];
-    if (!src) {
-      return;
-    }
-
-    audioEl.src = src;
-    audioEl.currentTime = 0;
-    audioEl.play().catch(() => {});
-    localStorage.setItem(SOUND_STORAGE_KEY, track);
-    highlightSelected(track);
-  }
-
-  soundToggleEl.addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (soundMenuEl.hidden) {
-      openMenu();
-    } else {
-      closeMenu();
-    }
+  // coming back via the browser's own back/forward (bfcache): don't stay faded out
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    root.classList.remove("page-enter");
+    if (main) main.classList.remove("page-leaving");
+    document.querySelectorAll(".back-nudge").forEach((el) => el.classList.remove("back-nudge"));
   });
 
-  menuItems.forEach((item) => {
-    item.addEventListener("click", () => {
-      selectTrack(item.dataset.track);
-      closeMenu();
-    });
-  });
+  function isInternalPageLink(link) {
+    if (link.target && link.target !== "_self") return false;
+    if (link.hasAttribute("download")) return false;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin) return false;
+    if (url.pathname === location.pathname && url.hash) return false; // same-page anchor
+    return /\.html?$|\/$/.test(url.pathname); // a page, not a file (pdf, mp3…)
+  }
 
   document.addEventListener("click", (event) => {
-    if (!soundMenuEl.hidden && !soundMenuEl.contains(event.target) && event.target !== soundToggleEl) {
-      closeMenu();
-    }
+    if (reduced || !main || event.defaultPrevented) return;
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    const link = event.target.closest && event.target.closest("a[href]");
+    if (!link || !isInternalPageLink(link)) return;
+
+    event.preventDefault();
+    if (link.getAttribute("aria-label") === "back") link.classList.add("back-nudge");
+    main.classList.add("page-leaving");
+    try {
+      sessionStorage.setItem(FADE_KEY, "1");
+    } catch {}
+    setTimeout(() => {
+      window.location.href = link.href;
+    }, OUT_MS + GAP_MS);
   });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !soundMenuEl.hidden) {
-      closeMenu();
-      soundToggleEl.focus();
-    }
-  });
-
-  audioEl.addEventListener("play", () => soundToggleEl.classList.add("is-playing"));
-  audioEl.addEventListener("pause", () => soundToggleEl.classList.remove("is-playing"));
-
-  const storedTrack = localStorage.getItem(SOUND_STORAGE_KEY);
-  if (storedTrack && TRACKS[storedTrack]) {
-    selectTrack(storedTrack);
-  } else {
-    highlightSelected("0");
-  }
 })();

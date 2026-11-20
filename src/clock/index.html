@@ -1,6 +1,7 @@
 ﻿<!doctype html>
 <html lang="en">
   <head>
+    <script>try{if(sessionStorage.getItem("site-fade-in")==="1"){sessionStorage.removeItem("site-fade-in");document.documentElement.classList.add("page-enter")}}catch(e){}</script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>clock</title>
@@ -9,10 +10,11 @@
   </head>
   <body>
     <main class="center">
-      <div class="clock-wrap">
-        <div class="clock" id="clock" aria-live="polite"></div>
-        <p class="clock-date" id="clock-date" aria-live="polite"></p>
-        <p class="clock-date clock-date-utc" id="clock-date-utc" aria-live="polite"></p>
+      <!-- click the clock: its settings, a full page popup -->
+      <div class="clock-wrap" id="clock-wrap" role="button" tabindex="0" aria-haspopup="dialog" aria-label="clock settings">
+        <div class="clock" id="clock"></div>
+        <p class="clock-date" id="clock-date"></p>
+        <p class="clock-date clock-date-utc" id="clock-date-utc"></p>
       </div>
       <div class="page-footer clock-footer" id="clock-footer">
         <a class="icon-button" href="../main/" aria-label="back">
@@ -20,29 +22,58 @@
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
         </a>
-        <button class="icon-button site-theme-toggle" id="site-theme-toggle" type="button" aria-label="switch to dark mode">
-          <span class="site-theme-toggle-icon" aria-hidden="true"></span>
-        </button>
-        <div class="sound-control">
-          <button class="icon-button sound-toggle" id="sound-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="sound menu">
-            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon>
-              <path class="wave" d="M16 8a5 5 0 0 1 0 8"></path>
-              <path class="wave" d="M18.5 5.5a9 9 0 0 1 0 13"></path>
-            </svg>
-          </button>
-          <div class="sound-menu" id="sound-menu" hidden>
-            <button class="sound-menu-item sound-menu-off" type="button" data-track="0" aria-label="sound off">0</button>
-            <button class="sound-menu-item" type="button" data-track="1" aria-label="sound 1">1</button>
-            <button class="sound-menu-item" type="button" data-track="2" aria-label="sound 2">2</button>
-            <button class="sound-menu-item" type="button" data-track="3" aria-label="sound 3">3</button>
-            <button class="sound-menu-item" type="button" data-track="4" aria-label="sound 4">4</button>
-            <button class="sound-menu-item" type="button" data-track="5" aria-label="sound 5">5</button>
+      </div>
+    </main>
+
+    <dialog class="clock-settings" id="clock-settings" aria-label="clock settings">
+      <div class="cs-list">
+        <div class="cs-row">
+          <span class="cs-label">size</span>
+          <div class="cs-stepper">
+            <button class="cs-btn" type="button" data-size="-1" aria-label="smaller">&minus;</button>
+            <span class="cs-size" id="cs-size">100%</span>
+            <button class="cs-btn" type="button" data-size="1" aria-label="bigger">+</button>
           </div>
         </div>
+        <div class="cs-row">
+          <span class="cs-label">format</span>
+          <div class="cs-choices" data-key="format">
+            <button class="cs-btn" type="button" data-value="24">24h</button>
+            <button class="cs-btn" type="button" data-value="12">12h</button>
+          </div>
+        </div>
+        <div class="cs-row">
+          <span class="cs-label">timezone</span>
+          <!-- off = automatic (the knob shows an A), on = pick one below -->
+          <button class="cs-toggle cs-toggle-tz" type="button" role="switch" data-key="tzMode" data-on="manual" data-off="auto" aria-label="set timezone manually">
+            <span class="cs-knob" aria-hidden="true">A</span>
+          </button>
+        </div>
+        <div class="cs-row cs-tz-row">
+          <span class="cs-tz-auto" id="cs-tz-auto"></span>
+          <select class="cs-tz-select" id="cs-tz-select" aria-label="timezone"></select>
+        </div>
+        <div class="cs-row">
+          <span class="cs-label">date</span>
+          <button class="cs-toggle" type="button" role="switch" data-key="showDate" data-on="on" data-off="off" aria-label="show date">
+            <span class="cs-knob" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="cs-row">
+          <span class="cs-label">utc</span>
+          <button class="cs-toggle" type="button" role="switch" data-key="showUtc" data-on="on" data-off="off" aria-label="show UTC time">
+            <span class="cs-knob" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
-      <audio id="site-sound-audio" loop preload="none"></audio>
-    </main>
+      <button class="icon-button cs-close" id="cs-close" type="button" aria-label="close settings">
+        <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+        </svg>
+      </button>
+    </dialog>
+
     <script src="../script.js"></script>
     <script src="../clock.js"></script>
   </body>

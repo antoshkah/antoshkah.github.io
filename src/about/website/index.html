@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>try{if(sessionStorage.getItem("site-fade-in")==="1"){sessionStorage.removeItem("site-fade-in");document.documentElement.classList.add("page-enter")}}catch(e){}</script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>website</title>
@@ -8,15 +9,18 @@
     <link rel="stylesheet" href="../../style.css" />
   </head>
   <body>
-    <main class="center about-layout">
+    <main class="center">
       <section class="about-card" aria-label="Site information">
         <p class="about-item"><strong>font</strong>: IA Writer Mono</p>
         <p class="about-item"><strong>background</strong>: <span id="bg-hex-value">#e8e3db</span></p>
         <p class="about-item">
           <strong>repo</strong>:
-          <a class="link" href="https://github.com/apalmeirim/apalmeirim.github.io" target="_blank" rel="noreferrer">
+          <a class="link" href="https://github.com/antoshkah/antoshkah.github.io" target="_blank" rel="noreferrer">
             github.com
           </a>
+        </p>
+        <p class="about-item" aria-label="powered by Claude Code">
+          <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
         </p>
       </section>
       <div class="page-footer">
@@ -25,12 +29,10 @@
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
         </a>
-        <button class="icon-button site-theme-toggle" id="site-theme-toggle" type="button" aria-label="switch to dark mode">
-          <span class="site-theme-toggle-icon" aria-hidden="true"></span>
-        </button>
       </div>
     </main>
     <script src="../../script.js"></script>
+    <script src="../../powered.js"></script>
     <script>
       const bgHexEl = document.getElementById("bg-hex-value");
 
