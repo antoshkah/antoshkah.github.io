@@ -318,12 +318,40 @@ $("viewBack").onclick = () => {
   render();
 };
 
-// first visit
+// first visit: "first time?" → the guide. hold it (0.6s) and it backspaces "first" and types "second":
+// "second time?" → a page to bring your stats in, from the cloud (cloud.js) or a backup file. hold again to switch back
+let introSecond = false;
+let introTyping = 0; // bumps on every retype, so an older one still running stops
+async function retypeIntro(word) {
+  const run = ++introTyping;
+  const el = $("introWord");
+  const step = () => new Promise((ok) => setTimeout(ok, 60));
+  while (el.textContent.length) {
+    if (run !== introTyping) return;
+    el.textContent = el.textContent.slice(0, -1);
+    await step();
+  }
+  for (const ch of word) {
+    if (run !== introTyping) return;
+    el.textContent += ch;
+    await step();
+  }
+}
+onLongPress($("introHelp"), () => {
+  introSecond = !introSecond;
+  retypeIntro(introSecond ? "second" : "first");
+}, 600);
 $("introHelp").onclick = () => {
+  if (introSecond) return show($("startDialog"));
   helpFromMenu = false;
+  $("helpDialog").classList.add("first"); // the short first-visit version
   show($("helpDialog"));
 };
-$("introImport").onclick = () => $("importFile").click();
+$("startImport").onclick = () => {
+  $("startDialog").close();
+  $("importFile").click();
+};
+$("startBack").onclick = () => $("startDialog").close();
 
 // star opens the name field (just a cursor); holding it opens the menu
 $("star").addEventListener("click", () => {
@@ -675,19 +703,21 @@ for (const d of document.querySelectorAll("dialog")) {
   });
 }
 
-// how to use
-// opened from the menu (not a first visit): tapping any empty space on the guide goes back to the menu
+// how to use: the ? in settings (or on the first visit's intro)
+// opened from settings: tapping any empty space on the guide goes back to settings
 let helpFromMenu = false;
 $("helpBtn").onclick = () => {
   helpFromMenu = true;
-  $("menuDialog").close();
+  hideTip();
+  $("settingsDialog").close();
+  $("helpDialog").classList.remove("first"); // the full version, with the cloud and live view
   show($("helpDialog"));
   $("helpDialog").scrollTop = 0;
 };
-// 👍 or tapping empty space: back to the menu if it was opened from there, otherwise (first visit) to the list
+// 👍 or tapping empty space: back to settings if it was opened from there, otherwise (first visit) to the list
 const leaveHelp = () => {
   $("helpDialog").close();
-  if (helpFromMenu) show($("menuDialog"));
+  if (helpFromMenu) show($("settingsDialog"));
 };
 $("helpDone").onclick = leaveHelp;
 $("helpDialog").addEventListener("click", (e) => {
@@ -696,7 +726,7 @@ $("helpDialog").addEventListener("click", (e) => {
 });
 $("helpDialog").addEventListener("close", markSeen);
 
-// export: just export, export read-only, or full app reset (asks yes / no first)
+// import / export page: import, export, or full app reset (asks yes / no first)
 $("exportBtn").onclick = () => {
   $("menuDialog").close();
   $("exportChoices").hidden = false;
@@ -709,7 +739,12 @@ const backToMenu = () => {
   show($("menuDialog"));
 };
 $("exportCancel").onclick = backToMenu;
-$("exportNo").onclick = backToMenu;
+// no to the full app reset: back to the import / export choices
+$("exportNo").onclick = () => {
+  $("exportConfirm").hidden = true;
+  $("exportChoices").hidden = false;
+  document.activeElement.blur();
+};
 $("exportClear").onclick = () => {
   $("exportChoices").hidden = true;
   $("exportConfirm").hidden = false;
@@ -718,10 +753,6 @@ $("exportClear").onclick = () => {
 $("exportOnly").onclick = () => {
   $("exportDialog").close();
   exportBackup();
-};
-$("exportView").onclick = () => {
-  $("exportDialog").close();
-  exportBackup(true);
 };
 
 // tamper seal: a fingerprint of the file's contents mixed with a key only this app knows.
@@ -740,31 +771,38 @@ function cyrb53(str, seed) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
 }
 function sealOf(file) {
-  // settings are sealed too when the file has them (older backups don't, and still check out)
+  // settings are sealed too when the file has them (older backups don't, and still check out).
+  // the first part was a read-only flag in older backups; it's always false now, kept so those backups still check out
   const parts = [file.readOnly === true, file.exported, file.stats];
   if (file.settings !== undefined) parts.push(file.settings);
   const body = SEAL_KEY + JSON.stringify(parts);
   return cyrb53(body, 1) + cyrb53(body, 2);
 }
-// full app reset: wipes everything this app keeps in localStorage (stats, settings, first-visit flags),
-// then starts over as a first visit. only this app's keys: the rest of the site shares localStorage
-$("exportYes").onclick = () => {
-  $("exportDialog").close();
+// wipes everything this app keeps in localStorage (stats, settings, cloud login, first-visit flags), then
+// starts over as a first visit. only this app's keys: the rest of the site shares localStorage.
+// used by the full app reset. disconnecting from the cloud (cloud.js) passes keepSeen: the first-visit flags
+// stay, so it comes back to the normal + screen (empty), not the welcome
+function wipeLocal(keepSeen = false) {
+  const keep = keepSeen ? [SEEN_KEY, WELCOME_KEY] : [];
   try {
     const mine = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k.startsWith("stats.") || k.startsWith("tally.")) mine.push(k);
+      if ((k.startsWith("stats.") || k.startsWith("tally.")) && !keep.includes(k)) mine.push(k);
     }
     for (const k of mine) localStorage.removeItem(k);
   } catch {}
   location.reload();
+}
+$("exportYes").onclick = () => {
+  $("exportDialog").close();
+  wipeLocal();
 };
 
 // backup files use 3-letter keys; the app works with the full names. where the first three letters clash,
 // it's the first letter + the start of the next word (showCreated → scr, timerPause → tpa)
 const SHORT_KEYS = {
-  _readme: "_re", seal: "sea", readOnly: "rea", exported: "exp", stats: "sta", settings: "set",
+  _readme: "_re", seal: "sea", exported: "exp", stats: "sta", settings: "set",
   id: "id", name: "nam", kind: "kin", created: "cre", count: "cou", elapsed: "ela", since: "sin",
   highest: "hig", deleted: "del", last: "las", log: "log", action: "act", time: "tim", added: "add",
   theme: "the", font: "fon", hold: "hol", timerPause: "tpa",
@@ -779,14 +817,11 @@ function renameKeys(value, map) {
 }
 
 // returns true once the file has been shared or downloaded
-async function exportBackup(readOnly = false) {
+async function exportBackup() {
   // written with the file's own 3-letter keys (see SHORT_KEYS); stats and settings are renamed into them.
   // JSON has no comments, so the explanation lives in a "_re" (readme) field (ignored on import)
   const backup = {
     _re: {
-      r: readOnly
-        ? ""
-        : "w",
       sea: "fingerprint (rw)",
       exp: "JSON file creation time",
       sta: "all stats (&deleted)",
@@ -804,10 +839,9 @@ async function exportBackup(readOnly = false) {
       log: "act = reset|delete|restore|addtime; tim = [new Date().toISOString()]ms; add = ms added (addtime only).",
     },
     sea: "",
-    rea: readOnly,
     exp: new Date().toISOString(),
     sta: renameKeys(stats, SHORT_KEYS),
-    ...(readOnly ? {} : { set: renameKeys(settings, SHORT_KEYS) }), // read-only copies are for someone else: they don't carry your settings
+    set: renameKeys(settings, SHORT_KEYS),
   };
   // round-trip and expand the keys, so the seal is computed on exactly what the importer will read back
   backup.sea = sealOf(renameKeys(JSON.parse(JSON.stringify(backup)), LONG_KEYS));
@@ -816,7 +850,7 @@ async function exportBackup(readOnly = false) {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
-  const filename = `stats-${readOnly ? "view-" : ""}${stamp}.json`;
+  const filename = `stats-${stamp}.json`;
   const file = new File([json], filename, { type: "application/json" });
   // share sheet works best on phones (save to Files, email, etc.)
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -835,10 +869,9 @@ async function exportBackup(readOnly = false) {
   return true;
 }
 
-// import: the file decides. an intact normal backup loads as yours;
-// a read-only copy, an edited file or an unsealed one opens in viewing mode
+// import: the file decides. an intact backup loads as yours; an edited or unsealed one opens in viewing mode
 $("importBtn").onclick = () => {
-  $("menuDialog").close();
+  $("exportDialog").close();
   $("importFile").click();
 };
 $("importFile").onchange = async () => {
@@ -852,12 +885,10 @@ $("importFile").onchange = async () => {
     const data = Array.isArray(parsed) ? parsed : parsed && parsed.stats;
     if (!Array.isArray(data)) throw new Error();
     const incoming = data.map(normalize);
-    // only an untouched, sealed, non-read-only file may replace your stats
+    // only an untouched, sealed file may replace your stats
     const intact = !Array.isArray(parsed) && typeof parsed.seal === "string" && parsed.seal === sealOf(parsed);
-    const locked = !intact || parsed.readOnly === true;
-    if (locked) {
+    if (!intact) {
       viewing = incoming; // never saved, gone when you go back
-      $("viewNote").textContent = intact ? "(read-only)" : "(edited · read-only)";
       render();
       return;
     }

@@ -101,43 +101,21 @@ const WELCOME_KEY = "stats.welcomed";
   }, end + EACH);
 })();
 
-// "how & why?" → the how & why page, over the welcome page (back / Esc returns to the welcome page)
+// "how?" → everything on the welcome page fades away (the how? button last), then the links come in its place
 $("howBtn").onclick = () => {
-  show($("howDialog"));
-  $("howDialog").scrollTop = 0;
+  const welcome = document.querySelector(".welcome");
+  welcome.classList.add("leaving");
+  setTimeout(() => {
+    welcome.hidden = true;
+    $("welcomeHow").hidden = false; // the links come down one by one (CSS), then the thumbs up
+  }, 800); // 0.4s fade, the button's starting 0.35s later
 };
-// the thumbs up at the bottom of how & why is the way on, and the welcome is only shown once
+// "On my phone" under the links is the way on, and the welcome is only shown once
 $("howDone").onclick = () => {
   try {
     localStorage.setItem(WELCOME_KEY, "1");
   } catch {}
-  $("howDialog").close();
   $("welcomeDialog").close();
   updateBar(); // off-white again for the ? / import screen
 };
 $("welcomeDialog").addEventListener("cancel", (e) => e.preventDefault());
-
-// "not your browser?": fades out, then the five browsers come down in its place, one after another
-$("othersBtn").onclick = () => {
-  const btn = $("othersBtn");
-  btn.classList.add("out");
-  setTimeout(() => {
-    btn.hidden = true;
-    $("othersList").hidden = false;
-  }, 200);
-};
-
-// how & why: tap a guide's heading to open / close it; opening one closes the other in the same group
-for (const head of document.querySelectorAll("#howDialog .acc-head")) {
-  head.setAttribute("aria-expanded", "false");
-  head.onclick = () => {
-    const item = head.parentElement;
-    const open = !item.classList.contains("open");
-    for (const other of item.parentElement.children) {
-      other.classList.remove("open");
-      other.querySelector(".acc-head").setAttribute("aria-expanded", "false");
-    }
-    item.classList.toggle("open", open);
-    head.setAttribute("aria-expanded", open);
-  };
-}

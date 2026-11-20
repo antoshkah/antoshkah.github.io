@@ -94,15 +94,15 @@
     </script>
   </head>
   <body>
-    <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(read-only)</span></div>
+    <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(edited · read-only)</span></div>
     <div id="list"></div>
     <button class="star" id="star" aria-label="Add a stat (hold for the menu)">
       <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
     </button>
-    <!-- first visit: ? and import, straight on the off-white page -->
+    <!-- first visit, straight on the off-white page: "first time?" (tap: the guide). hold it 0.6s and it retypes
+         itself as "second time?" (tap: a page with the cloud and import). hold again to switch back -->
     <div class="intro" id="intro" hidden>
-      <button id="introHelp" aria-label="How to use"><span class="glyph">?</span></button>
-      <button id="introImport" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
+      <button class="intro-q" id="introHelp"><span id="introWord">first</span> time?</button>
     </div>
     <button id="viewBack" aria-label="Stop viewing" hidden><svg class="ic"><use href="#i-exit" /></svg></button>
     <!-- tap the plus: type a name, then pick # (counted) or clock (timed, starts straight away) -->
@@ -130,6 +130,9 @@
       <!-- restore: an undo arrow (different from reset's circle) -->
       <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="square" stroke-linejoin="miter" /></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M10.5 18h3" /></symbol>
+      <!-- full app reset: a phone, with a red cross over it -->
+      <symbol id="i-phone-x" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2" /><path d="M10.5 18h3" /><path d="M4 6l16 12M20 6L4 18" style="stroke: var(--danger)" /></symbol>
       <!-- caution: a triangle with an ! -->
       <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5L2.5 20h19Z" /><path d="M12 10v4.5M12 17.5v.01" /></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></symbol>
@@ -206,21 +209,20 @@
       </div>
     </dialog>
 
-    <!-- hold the star -->
+    <!-- hold the star: cloud, import / export (one page), settings (the ? guide is in there) -->
     <dialog id="menuDialog">
       <div class="icons">
-        <button id="importBtn" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
-        <button id="exportBtn" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
-        <button id="settingsBtn" aria-label="Settings"><span class="glyph">A</span></button>
-        <button id="helpBtn" aria-label="How to use"><span class="glyph">?</span></button>
         <button id="accountBtn" aria-label="Account"><svg class="ic"><use href="#i-cloud" /></svg></button>
+        <button id="exportBtn" class="pair" aria-label="Import / export"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></button>
+        <button id="settingsBtn" aria-label="Settings"><span class="glyph">A</span></button>
       </div>
     </dialog>
 
     <!-- menu → cloud: log in to sync your stats (dev: one account, sign-ups are off in Supabase). see cloud.js -->
     <dialog id="accountDialog" class="page">
-      <!-- logged in only: a small cloud at the top. on log out the rest fades away and it implodes -->
-      <svg class="ic account-cloud" id="accountCloud" aria-hidden="true" hidden><use href="#i-cloud" /></svg>
+      <!-- logged in only: a small cloud at the top. on log out the rest fades away and it implodes.
+           offline, tap it to flip to a phone: then this device's copy is what goes up when back online (cloud.js) -->
+      <svg class="ic account-cloud" id="accountCloud" role="button" aria-label="When back online: cloud or phone wins" hidden><use id="accountCloudIcon" href="#i-cloud" /></svg>
       <form class="login" id="loginForm">
         <input id="loginEmail" type="email" autocomplete="username" placeholder="email" aria-label="Email" />
         <input id="loginPassword" type="password" autocomplete="current-password" placeholder="password" aria-label="Password" />
@@ -250,7 +252,7 @@
         <!-- live view: a read-only page (live.html?u=username) anyone with the link can watch.
              not shared: type a username, tap the eye. shared: open it · copy the link · stop sharing (eye, red cross) -->
         <div class="share">
-          <input class="share-name" id="shareName" maxlength="20" placeholder="view id" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" aria-label="View id for your live view" />
+          <input class="share-name" id="shareName" maxlength="20" placeholder="view ID" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="go" aria-label="View id for your live view" />
           <div class="icons share-icons">
             <button id="shareBtn" aria-label="Share live view"><svg class="ic"><use href="#i-eye" /></svg></button>
             <button id="openShare" aria-label="Open live view" hidden><svg class="ic"><use href="#i-eye" /></svg></button>
@@ -268,23 +270,29 @@
     </dialog>
 
 
-    <!-- menu → export -->
+    <!-- first visit → "second time?": bring your stats in, from the cloud (log in) or a backup file (import).
+         off-white like the first-visit page -->
+
+    <dialog id="startDialog" class="page">
+      <div class="icons start-icons">
+        <button id="startCloud" aria-label="Connect to the cloud"><svg class="ic"><use href="#i-cloud" /></svg></button>
+        <button id="startImport" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
+        <button id="startBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
+      </div>
+    </dialog>
+
+    <!-- menu → import / export -->
     <dialog id="exportDialog" class="page">
       <div class="icons" id="exportChoices">
+        <button id="importBtn" aria-label="Import"><svg class="ic"><use href="#i-import" /></svg></button>
         <button id="exportOnly" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
-        <button id="exportView" class="pair labeled" aria-label="Export read-only">
-          <svg class="ic"><use href="#i-export" /></svg><svg class="ic"><use href="#i-eye" /></svg>
-          <span class="sub">(read&#8209;only)</span>
-        </button>
-        <button id="exportClear" class="danger labeled" aria-label="Full app reset">
-          <svg class="ic"><use href="#i-trash" /></svg>
-          <span class="sub">(full app reset)</span>
-        </button>
+        <!-- full app reset: a phone with a red cross through it -->
+        <button id="exportClear" aria-label="Full app reset"><svg class="ic"><use href="#i-phone-x" /></svg></button>
         <button id="exportCancel" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
       <!-- after picking full app reset -->
       <div class="choices" id="exportConfirm" hidden>
-        <div class="confirm-text">delete all <b>stats</b> and <b>settings</b> from localStorage? this can't be undone.</div>
+        <div class="confirm-text">delete all <b>stats</b> and <b>settings</b> locally? this can't be undone.</div>
         <div class="icons">
           <button id="exportYes" class="danger" aria-label="Yes"><svg class="ic"><use href="#i-up" /></svg></button>
           <button id="exportNo" class="muted" aria-label="No"><svg class="ic"><use href="#i-down" /></svg></button>
@@ -343,12 +351,16 @@
           </div>
         </div></div>
       </div>
-      <button class="done" id="settingsDone" aria-label="Done"><svg class="ic"><use href="#i-exit" /></svg></button>
+      <!-- the ? guide, and the way out (back to the menu) -->
+      <div class="icons settings-end">
+        <button id="helpBtn" aria-label="How to use"><span class="glyph">?</span></button>
+        <button class="muted" id="settingsDone" aria-label="Done"><svg class="ic"><use href="#i-exit" /></svg></button>
+      </div>
      </div>
     </dialog>
 
-    <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used,
-         and a "how & why?" button to the page below -->
+    <!-- first visit only, before the ? / import screen: who made it, how it's meant to be used, and a "how?" button.
+         tapping how? fades all of it away (the button last) and the links below come in, in the same place -->
     <dialog id="welcomeDialog" class="page">
       <!-- one centred column: title, heads-up, button, then "powered by" -->
       <div class="welcome">
@@ -358,84 +370,26 @@
           <path d="M29.5 0h17L28.6 103h-17Z M57.5 0h17L56.6 103h-17Z M6 29h80v16H6Z M0 58h80v16H0Z" />
         </svg>
         <p class="warn"><b>heads up:</b> <i>stats</i> is made to be used as a web page on your phone, added to your home screen.</p>
-        <button class="how-btn" id="howBtn">how &amp; why?</button>
+        <button class="how-btn" id="howBtn">how?</button>
         <!-- "powered by Claude Code" types itself out, with the little guy as the cursor (welcome.js) -->
         <div class="welcome-pb" aria-label="powered by Claude Code">
           <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
         </div>
       </div>
-    </dialog>
-
-    <!-- welcome → how & why?: adding it to the home screen (Safari on iOS, Chrome on Android), then why
-         it matters (localStorage). the thumbs up at the bottom moves on to the ? / import screen -->
-    <dialog id="howDialog" class="page">
-      <div class="how">
-        <h2>how?</h2>
-        <p> add <i>stats</i> to your home screen.</p>
-        <!-- drop-down guides: tap a heading to open it; opening one closes the other -->
-        <div class="acc">
-          <div class="acc-item">
-            <button class="acc-head">iOS (Safari)<svg class="ic chev"><use href="#i-chev" /></svg></button>
-            <div class="acc-body"><div class="acc-inner">
-              <ol>
-                <li>Open this page in <b>Safari</b>.</li>
-                <li>Tap the <b>Share</b> button (a square with an arrow pointing up). If you can't see it, tap <b>⋯</b> first.</li>
-                <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
-                <li>If there's an <b>Open as Web App</b> switch, leave it on.</li>
-                <li>Tap <b>Add</b>.</li>
-                <li>Open <i>stats</i> from the new icon on your home screen.</li>
-              </ol>
-            </div></div>
-          </div>
-          <div class="acc-item">
-            <button class="acc-head">Android (Chrome)<svg class="ic chev"><use href="#i-chev" /></svg></button>
-            <div class="acc-body"><div class="acc-inner">
-              <ol>
-                <li>Open this page in <b>Chrome</b>.</li>
-                <li>Tap the <b>⋮</b> menu (top right).</li>
-                <li>Tap <b>Add to home screen</b> (it may say <b>Install app</b>).</li>
-                <li>Tap <b>Install</b> or <b>Add</b>, and confirm.</li>
-                <li>Open <i>stats</i> from the new icon on your home screen.</li>
-              </ol>
-            </div></div>
-          </div>
-        </div>
-        <!-- other browsers: tap "not your browser?" and it fades into a column of the five, a Google search each
-             (Samsung Internet is Android only). kept outside .acc: it isn't a drop-down -->
-        <div class="others">
-          <button class="others-btn" id="othersBtn">not your browser?</button>
-          <ul class="browsers" id="othersList" hidden>
-            <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+samsung+internet" target="_blank" rel="noopener">Samsung</a></li>
-            <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+opera+on+android%2Fios" target="_blank" rel="noopener">Opera</a></li>
-            <li style="--i: 2"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+uc+browser+on+android%2Fios" target="_blank" rel="noopener">UC</a></li>
-            <li style="--i: 3"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+firefox+on+android%2Fios" target="_blank" rel="noopener">Firefox</a></li>
-            <li style="--i: 4"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+brave+on+android%2Fios" target="_blank" rel="noopener">Brave</a></li>
-          </ul>
-        </div>
-
-        <h2>why?</h2>
-        <p><i>stats</i> keeps everything in <a href="https://www.w3schools.com/jsref/prop_win_localstorage.asp" target="_blank" rel="noopener"><b>localStorage</b></a>. no data is stored externally, and there's no account.</p>
-        <p><b>localStorage</b> belongs to one webpage: clearing your browser's history or website data deletes it.  you can <b>export</b> now and then to keep a backup.</p>
-        <p class="tight">everything is <b>offline</b> and <b>on-device</b>.</p>
-        <p class="soon">(live view coming in 2.0)</p>
-        <div class="acc">
-          <div class="acc-item">
-            <button class="acc-head">iOS<svg class="ic chev"><use href="#i-chev" /></svg></button>
-            <div class="acc-body"><div class="acc-inner">
-              <p>The home screen app gets <b>its own storage, separate from Safari</b>. Stats you add in a Safari tab won't be in the app, and the other way round.</p>
-              <p>In a normal Safari tab, Safari can wipe a site's storage if you haven't visited it for a while. The home screen app is kept as long as you use it. Removing the app's icon delete its stats, so export first.</p>
-            </div></div>
-          </div>
-          <div class="acc-item">
-            <button class="acc-head">Android<svg class="ic chev"><use href="#i-chev" /></svg></button>
-            <div class="acc-body"><div class="acc-inner">
-              <p>The home screen app <b>shares storage with Chrome</b> for this site, so it's the same stats whether you open the icon or the page in Chrome.</p>
-              <p>Clearing Chrome's data for this site (or all of Chrome's data) deletes your stats. When your phone runs low on space, Chrome can clear site storage too: export regularly.</p>
-            </div></div>
-          </div>
-        </div>
-
-        <button class="done" id="howDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
+      <!-- after how?: how to add it to the home screen, one link per browser, each a Google search for its own steps
+           (Samsung Internet is Android only). "On my phone" moves on to the ? / import screen -->
+      <div class="welcome-how" id="welcomeHow" hidden>
+        <ul class="browsers">
+          <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+safari+on+ios" target="_blank" rel="noopener">iOS</a></li>
+          <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+chrome+on+android" target="_blank" rel="noopener">Android</a></li>
+          <li style="--i: 2"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+samsung+internet" target="_blank" rel="noopener">Samsung</a></li>
+          <li style="--i: 3"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+opera+on+android%2Fios" target="_blank" rel="noopener">Opera</a></li>
+          <li style="--i: 4"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+uc+browser+on+android%2Fios" target="_blank" rel="noopener">UC</a></li>
+          <li style="--i: 5"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+firefox+on+android%2Fios" target="_blank" rel="noopener">Firefox</a></li>
+          <li style="--i: 6"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+brave+on+android%2Fios" target="_blank" rel="noopener">Brave</a></li>
+        </ul>
+        <!-- already on the phone: straight on to the app -->
+        <button class="on-phone" id="howDone">on your phone?</button>
       </div>
     </dialog>
 
@@ -466,10 +420,9 @@
         </div>
         <!-- the menu (hold the +) -->
         <div class="d-menu" id="dMenu">
-          <span><svg class="ic"><use href="#i-import" /></svg></span>
-          <span><svg class="ic"><use href="#i-export" /></svg></span>
+          <span><svg class="ic"><use href="#i-cloud" /></svg></span>
+          <span class="d-pair"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></span>
           <span class="glyph">A</span>
-          <span class="glyph">?</span>
         </div>
         <!-- a soft dip between scenes, so a jump to another page doesn't look like something the app does on its own -->
         <div class="d-cut" id="dCut"></div>
@@ -482,17 +435,30 @@
         </div>
       </div>
 
-      <p class="tight">Hold the <svg class="ic"><use href="#i-plus" /></svg> to open the menu.
-      All stats and settings are stored <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" target="_blank" rel="noopener">locally</a>, and can be exported/imported via JSON.</p>
-      <p class="soon">(live view coming in 2.0)</p>
+      <p class="tight">Hold <svg class="ic"><use href="#i-plus" /></svg> to open menu.</p>
       <ul class="legend">
-        <li><svg class="ic"><use href="#i-import" /></svg>imports JSON</li>
-        <li><svg class="ic"><use href="#i-export" /></svg>exports JSON</li>
+        <!-- tap: the cloud sync info, full screen (cloudInfoDialog) -->
+        <li><button class="legend-btn" id="cloudInfoBtn"><svg class="ic"><use href="#i-cloud" /></svg>cloud sync</button></li>
+        <li><span class="duo"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></span>import / export JSON</li>
         <li><b>A</b>settings</li>
-        <li><b>?</b>brings you back here</li>
       </ul>
 
       <button class="done" id="helpDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
+    </dialog>
+
+    <!-- ? guide → the cloud in the icon row: cloud sync + live view, full screen, no border. "here" deletes everything of yours in the cloud (cloud.js).
+         back (or tapping anywhere else) returns to the guide -->
+    <dialog id="cloudInfoDialog" class="page">
+      <div class="cloud-info">
+        <p>connects to backend via Supabase.</p>
+        <p>data is upload-only.</p>
+        <!-- "here" is only a button while connected; otherwise it's plain text -->
+        <p>delete your info on cloud <button class="help-link" id="cloudDeleteBtn">here</button>.</p>
+        <p><svg class="ic"><use href="#i-eye" /></svg> view to display stats live, ID must be unique.</p>
+      </div>
+      <div class="icons">
+        <button id="cloudInfoBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
+      </div>
     </dialog>
 
     <!-- in this order: app.js is the core, the rest build on it, start.js kicks everything off -->
