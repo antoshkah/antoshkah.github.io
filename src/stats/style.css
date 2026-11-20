@@ -176,7 +176,16 @@ dialog.page > * { width: min(100%, 300px); }
 .icons button { width: 52px; height: 52px; padding: 0; display: grid; place-items: center; }
 .ic { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .glyph { font-size: 1.9rem; font-weight: 900; line-height: 1; }
-#menuDialog { width: min(86vw, 280px); }
+/* the menu: a full page (class "page"), its icons in a row in the middle */
+#menuDialog .icons { width: min(100%, 320px); }
+/* a bit bigger than the icons on the smaller pages, now that the menu has the whole screen */
+#menuDialog .icons button { width: 64px; height: 64px; }
+#menuDialog .icons .ic { width: 32px; height: 32px; }
+#menuDialog .icons button.pair { width: 88px; }
+#menuDialog .icons button.pair .ic { width: 30px; height: 30px; }
+#menuDialog .glyph { font-size: 2.3rem; }
+/* the cloud only fills the middle of its drawing, so it gets a bigger box to look the same size as the others */
+#menuDialog #accountBtn .ic { width: 40px; height: 40px; }
 #helpDialog .legend .duo { display: flex; height: 44px; align-items: center; }
 #helpDialog .legend .duo .ic { width: 30px; height: 30px; }
 .icons button.pair { width: 72px; padding: 0; display: flex; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 2px; }
@@ -361,8 +370,9 @@ body.viewing .row .count { cursor: default; }
 #helpDialog p, #helpDialog li { font-weight: normal; font-size: 0.9rem; line-height: 1.45; margin: 0 0 6px; }
 #helpDialog ul { padding: 0; margin: 0 0 6px; }
 #helpDialog b { font-weight: bold; }
-#helpDialog .done { display: grid; place-items: center; width: 100%; padding: 14px; margin-top: 14px; }
-#helpDialog .done .ic { width: 42px; height: 42px; vertical-align: 0; }
+#helpDialog .done { display: grid; place-items: center; width: 100%; padding: 14px; margin-top: 14px; color: var(--muted); }
+/* the exit button, the same size as on the settings / export pages */
+#helpDialog .done .ic { width: 26px; height: 26px; vertical-align: 0; }
 #helpDialog a { color: inherit; }
 
 /* the little animated walkthrough at the top of the guide */
@@ -750,3 +760,9 @@ body.viewing .row .count { cursor: default; }
 #addTimeDialog .icons { justify-content: center; gap: 36px; }
 /* "#stats": the "stats" part in italics ("welcomeback" stays upright) */
 #introRest.italic { font-style: italic; }
+/* live view: "#stats" under the shared stats, a way into the app (upright here) */
+.live-home { margin-top: 28px; padding: 8px; font-size: 1.4rem; color: var(--fg); text-decoration: none; }
+/* no stats yet: "(hold for menu)" in small grey under the +. only while the list is empty and the + is showing */
+.star-hint { display: none; margin-top: -6px; font-size: 0.75rem; font-weight: normal; color: var(--muted); }
+.empty .star-hint { display: block; }
+.star[hidden] + .star-hint { display: none; }

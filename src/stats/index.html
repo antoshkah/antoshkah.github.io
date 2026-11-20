@@ -92,11 +92,13 @@
     </script>
   </head>
   <body>
-    <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(edited · read-only)</span></div>
+    <div class="viewing-label" id="viewLabel" hidden><svg class="ic"><use href="#i-eye" /></svg><span id="viewNote">(read-only)</span></div>
     <div id="list"></div>
     <button class="star" id="star" aria-label="Add a stat (hold for the menu)">
       <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
     </button>
+    <!-- no stats yet: a small grey hint under the + (hidden whenever the + is) -->
+    <div class="star-hint" aria-hidden="true">(hold for menu)</div>
     <!-- first visit: a black screen, just the # in the middle.
          tap the #: "stats" types out after it (tap again: the guide).
          hold the #: "welcomeback" types out instead (tap: the cloud / import page). hold again to switch back.
@@ -216,7 +218,8 @@
     </dialog>
 
     <!-- hold the star: cloud, import / export (one page), settings (the ? guide is in there) -->
-    <dialog id="menuDialog">
+    <!-- hold the +: the menu, a full page. tap any empty space to go back to the list -->
+    <dialog id="menuDialog" class="page">
       <div class="icons">
         <button id="accountBtn" aria-label="Account"><svg class="ic"><use href="#i-cloud" /></svg></button>
         <button id="exportBtn" class="pair" aria-label="Import / export"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></button>
@@ -439,7 +442,7 @@
         <span class="pb-text" aria-hidden="true">powered by <b>Claude Code</b><svg class="clawd" id="clawd" viewBox="0 0 18 10" shape-rendering="crispEdges"></svg></span>
       </div>
 
-      <button class="done" id="helpDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
+      <button class="done" id="helpDone" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
     </dialog>
 
     <!-- ? guide → import / export in the icon row: full screen, no border. back (or tapping anywhere) returns to the guide.

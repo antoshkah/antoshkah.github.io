@@ -382,7 +382,17 @@ $("star").addEventListener("click", () => {
 });
 // the + always opens the menu after 0.4s, whatever the hold setting (that one is for stats)
 const MENU_HOLD = 400;
-onLongPress($("star"), () => show($("menuDialog")), MENU_HOLD);
+let menuOpenedAt = 0;
+onLongPress($("star"), () => {
+  menuOpenedAt = Date.now();
+  show($("menuDialog"));
+}, MENU_HOLD);
+// the menu is a full page: tapping any empty space (not one of its buttons) goes back to the list.
+// (not in the first moment after it opens, so lifting the finger from the hold doesn't close it straight away)
+$("menuDialog").addEventListener("click", (e) => {
+  if (e.target.closest("button") || Date.now() - menuOpenedAt < 400) return;
+  $("menuDialog").close();
+});
 
 function closeNew() {
   $("newbox").value = "";
@@ -784,29 +794,6 @@ $("exportOnly").onclick = () => {
   exportBackup();
 };
 
-// tamper seal: a fingerprint of the file's contents mixed with a key only this app knows.
-// edit anything in the file and the seal stops matching, so it can only be viewed.
-// (it's a deterrent, not real security: the key is in this public source code.)
-const SEAL_KEY = "stats·k7Qx!m2Lp9#vR4tZ·seal"; // cheeky lol
-function cyrb53(str, seed) {
-  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
-  for (let i = 0; i < str.length; i++) {
-    const ch = str.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
-}
-function sealOf(file) {
-  // settings are sealed too when the file has them (older backups don't, and still check out).
-  // the first part was a read-only flag in older backups; it's always false now, kept so those backups still check out
-  const parts = [file.readOnly === true, file.exported, file.stats];
-  if (file.settings !== undefined) parts.push(file.settings);
-  const body = SEAL_KEY + JSON.stringify(parts);
-  return cyrb53(body, 1) + cyrb53(body, 2);
-}
 // wipes everything this app keeps in localStorage (stats, settings, cloud login, first-visit flags), then
 // starts over as a first visit. only this app's keys: the rest of the site shares localStorage.
 // used by the full app reset. disconnecting from the cloud (cloud.js) passes keepSeen: the first-visit flags
@@ -831,7 +818,7 @@ $("exportYes").onclick = () => {
 // backup files use 3-letter keys; the app works with the full names. where the first three letters clash,
 // it's the first letter + the start of the next word (showCreated → scr, timerPause → tpa)
 const SHORT_KEYS = {
-  _readme: "_re", seal: "sea", exported: "exp", stats: "sta", settings: "set",
+  _readme: "_re", exported: "exp", stats: "sta", settings: "set",
   id: "id", name: "nam", kind: "kin", created: "cre", count: "cou", elapsed: "ela", since: "sin",
   highest: "hig", deleted: "del", last: "las", log: "log", action: "act", time: "tim", added: "add",
   theme: "the", font: "fon", hold: "hol", timerPause: "tpa",
@@ -851,7 +838,6 @@ async function exportBackup() {
   // JSON has no comments, so the explanation lives in a "_re" (readme) field (ignored on import)
   const backup = {
     _re: {
-      sea: "fingerprint (rw)",
       exp: "JSON file creation time",
       sta: "all stats (&deleted)",
       set: "your settings (rw)",
@@ -867,13 +853,10 @@ async function exportBackup() {
       las: "add|subtract|pause|resume|addtime",
       log: "act = reset|delete|restore|addtime; tim = [new Date().toISOString()]ms; add = ms added (addtime only).",
     },
-    sea: "",
     exp: new Date().toISOString(),
     sta: renameKeys(stats, SHORT_KEYS),
     set: renameKeys(settings, SHORT_KEYS),
   };
-  // round-trip and expand the keys, so the seal is computed on exactly what the importer will read back
-  backup.sea = sealOf(renameKeys(JSON.parse(JSON.stringify(backup)), LONG_KEYS));
   const json = JSON.stringify(backup, null, 2);
   // local date and time, e.g. stats-2026-11-18_14-05-32.json (no colons: not allowed in filenames)
   const now = new Date();
@@ -898,7 +881,8 @@ async function exportBackup() {
   return true;
 }
 
-// import: the file decides. an intact backup loads as yours; an edited or unsealed one opens in viewing mode
+// import: a backup loads as yours (it asks first if you already have stats). an old read-only copy (readOnly: true,
+// from when the app could export those) opens in viewing mode instead
 $("importBtn").onclick = () => {
   $("exportDialog").close();
   $("importFile").click();
@@ -914,9 +898,9 @@ $("importFile").onchange = async () => {
     const data = Array.isArray(parsed) ? parsed : parsed && parsed.stats;
     if (!Array.isArray(data)) throw new Error();
     const incoming = data.map(normalize);
-    // only an untouched, sealed file may replace your stats
-    const intact = !Array.isArray(parsed) && typeof parsed.seal === "string" && parsed.seal === sealOf(parsed);
-    if (!intact) {
+    // old read-only copies are only for looking at
+    const readOnly = !Array.isArray(parsed) && parsed.readOnly === true;
+    if (readOnly) {
       viewing = incoming; // never saved, gone when you go back
       render();
       return;
