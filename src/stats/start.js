@@ -48,4 +48,6 @@ try {
 if (isNew() && !welcomed) {
   show($("welcomeDialog"));
   updateBar(); // dark status bar while the (dark) welcome page is up
+} else if (isNew()) {
+  playIntro(); // "#1 time?" types itself out (after the welcome, it's welcome.js that starts it)
 }

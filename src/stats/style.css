@@ -88,7 +88,11 @@ html.fresh, html.fresh body { background: var(--fg); color: var(--bg); }
 .intro[hidden] { display: none; }
 /* "first time?" / "second time?": a big plain text button (the word retypes itself on a hold) */
 /* display: block, not the grid the other intro buttons use: in a grid "first" and " time?" each got their own row */
-.intro .intro-q { display: block; width: auto; height: auto; padding: 14px 8px; font-size: 1.6rem; white-space: nowrap; touch-action: manipulation; }
+/* "#1 time?": the # pops in first, alone in the middle (a quick swell and settle), then the rest types after it */
+.intro-hash { display: inline-block; }
+.intro-hash.pop { animation: hashpop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+@keyframes hashpop { from { transform: scale(0); opacity: 0; } 60% { transform: scale(1.35); opacity: 1; } to { transform: scale(1); } }
+.intro .intro-q { display: block; width: auto; height: auto; padding: 14px 8px; font-size: 2rem; white-space: nowrap; touch-action: manipulation; }
 /* "second time?" page: off-white like the first-visit page, big cloud · import · back */
 #startDialog { background: var(--fg); color: var(--bg); }
 .start-icons { justify-content: center; gap: 28px; }
@@ -341,17 +345,28 @@ body.viewing .row .count { cursor: default; }
 .welcome-how a { color: inherit; text-underline-offset: 3px; }
 /* "On my phone" (on to the app): a little below the links, in italics, coming in after the last one */
 .welcome-how .on-phone { margin-top: 28px; padding: 6px 0; font-size: 1rem; opacity: 0; animation: lower 0.3s ease-out 0.6s forwards; }
+.welcome-how .on-phone .ic { width: 1.3em; height: 1.3em; vertical-align: -0.3em; }
 /* the cloud in the guide's icon row is a button (opens the cloud sync info), laid out like the other entries */
 #helpDialog .legend .legend-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; font-size: inherit; color: inherit; }
+/* "To sync online click here." only in the first-visit version of the guide */
+#helpDialog:not(.first) .first-only { display: none; }
+#helpDialog.first #helpDone { display: none; } /* first visit: "continue offline" is the way on instead */
+/* …and with the thumbs up hidden, the icon row is the last thing showing: it takes the bottom auto margin,
+   so the guide stays centred top-to-bottom (otherwise it all sinks to the bottom) */
+#helpDialog.first .legend { margin-bottom: auto; }
+#helpDialog .first-only { margin-top: 4px; }
+#helpDialog .first-only .help-link { color: inherit; font-weight: bold; }
 /* "here" on the cloud info page */
 .help-link { text-decoration: underline; text-underline-offset: 3px; }
 /* cloud sync info: full screen, no border, just the two lines */
 .cloud-info { margin-bottom: 18px; }
 .cloud-info p { font-weight: normal; font-size: 0.95rem; line-height: 1.5; margin: 0 0 10px; }
 .cloud-info p .ic { width: 1.2em; height: 1.2em; vertical-align: -0.25em; }
+/* a small heading at the top of an info page ("for offline use") */
+.cloud-info .info-title { margin: 0 0 14px; font-size: 1rem; }
 .cloud-info .help-link { color: inherit; font-weight: bold; }
-/* not connected: "here" is just a word */
-.cloud-info .help-link:disabled { font-weight: inherit; text-decoration: none; cursor: default; }
+/* not connected: "here" is greyed out, just a word */
+.cloud-info .help-link:disabled { color: var(--muted); opacity: 0.6; font-weight: inherit; text-decoration: none; cursor: default; }
 /* a greyed note right under the line before it (the ? guide) */
 #helpDialog p.tight { margin-bottom: 0; }
 #helpDialog .soon { color: var(--muted); font-size: 0.75rem; }
@@ -524,7 +539,9 @@ body.viewing .row .count { cursor: default; }
 .modes { display: flex; justify-content: center; gap: 22px; padding-bottom: 8px; }
 .modes button { display: flex; align-items: center; gap: 1px; padding: 6px 8px; color: var(--muted); opacity: 0.55; transition: color 0.15s, opacity 0.15s; }
 .modes button.on { color: var(--fg); opacity: 1; }
-.modes .finger { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+/* "taps" after the 2: just a word, not a choice */
+.modes { align-items: center; }
+.modes-unit { color: var(--muted); font-size: 0.85rem; margin-left: -10px; }
 .row.tappable { cursor: pointer; touch-action: manipulation; } /* no double-tap zoom */
 .set-head .chev, .font-chev { width: 16px; height: 16px; color: var(--muted); transition: rotate 0.22s ease; }
 .setting.open .chev { rotate: 180deg; }
@@ -568,7 +585,9 @@ body.viewing .row .count { cursor: default; }
   position: absolute;
   z-index: 10;
   width: max-content;
-  max-width: 220px;
+  white-space: nowrap; /* one line */
+  left: 0; /* (until it's placed) */
+  visibility: hidden; /* hidden ones take no room either, so nothing sticks out sideways */
   padding: 8px 10px;
   background: var(--card);
   color: var(--fg);
@@ -581,15 +600,17 @@ body.viewing .row .count { cursor: default; }
   opacity: 0;
   translate: 0 -4px;
   pointer-events: none;
-  transition: opacity 0.15s ease, translate 0.15s ease;
+  transition: opacity 0.15s ease, translate 0.15s ease, visibility 0.15s;
 }
-.set-tip.on { opacity: 1; translate: 0 0; }
+.set-tip.on { opacity: 1; translate: 0 0; visibility: visible; }
+/* nothing in settings may widen the page past the screen */
+#settingsDialog { overflow-x: hidden; }
 /* the little point, aimed at the icon */
 .set-tip::before {
   content: "";
   position: absolute;
   top: -5px;
-  left: 14px;
+  left: var(--point, 14px); /* under the icon's middle (settings.js) */
   width: 8px;
   height: 8px;
   background: var(--card);

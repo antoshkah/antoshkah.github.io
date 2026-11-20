@@ -117,5 +117,6 @@ $("howDone").onclick = () => {
   } catch {}
   $("welcomeDialog").close();
   updateBar(); // off-white again for the ? / import screen
+  playIntro(); // and "#1 time?" types itself out on it
 };
 $("welcomeDialog").addEventListener("cancel", (e) => e.preventDefault());

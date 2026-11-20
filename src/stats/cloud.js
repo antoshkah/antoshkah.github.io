@@ -239,7 +239,7 @@ async function cloudStart(quiet = false) {
   }
   // in the middle of something (a stat page, a yes / no, adding time…): don't swap the stats out from
   // under it. it downloads the next time instead
-  if (document.querySelector("dialog[open]:not(#accountDialog):not(#menuDialog)")) return;
+  if (document.querySelector("dialog[open]:not(#accountDialog):not(#menuDialog):not(#helpDialog)")) return;
   syncRunning = true;
   if (!quiet) setSyncing();
   let cloud;
@@ -374,7 +374,7 @@ window.addEventListener("offline", () => {
   renderAccount();
 });
 $("accountBtn").onclick = () => {
-  accountFromStart = false;
+  accountFromStart = accountFromHelp = false;
   $("menuDialog").close();
   renderAccount();
   show($("accountDialog"));
@@ -482,10 +482,20 @@ $("cloudDeleteBtn").onclick = () => {
   }, true);
 };
 
+// first-visit guide → "To sync online click here": the cloud login, opened on top of the guide
+// (closing the guide would count the first visit as done). back closes it, the guide's still there
+let accountFromHelp = false;
+$("helpSync").onclick = () => {
+  accountFromHelp = true;
+  renderAccount();
+  show($("accountDialog"));
+};
+
 // opened from the first visit's upside-down ? page (not the menu): back goes there instead
 let accountFromStart = false;
 $("startCloud").onclick = () => {
   accountFromStart = true;
+  accountFromHelp = false;
   $("startDialog").close();
   renderAccount();
   show($("accountDialog"));
@@ -494,9 +504,12 @@ $("startCloud").onclick = () => {
 $("accountBack").onclick = () => {
   $("accountDialog").close();
   // logged in from the first visit and now has stats: the intro's gone, so back is just the list
-  if (accountFromStart && isNew()) show($("startDialog"));
-  else if (!accountFromStart) show($("menuDialog"));
-  accountFromStart = false;
+  if (accountFromHelp) {
+    // the guide is still open underneath
+  } else if (accountFromStart) {
+    if (isNew()) show($("startDialog"));
+  } else show($("menuDialog"));
+  accountFromStart = accountFromHelp = false;
 };
 
 // sync when the app opens, when the connection comes back, and when you come back to the app

@@ -315,31 +315,43 @@ $("viewBack").onclick = () => {
   const first = isNew();
   $("star").hidden = first;
   $("intro").hidden = !first;
+  if (first) playIntro();
   render();
 };
 
-// first visit: "first time?" → the guide. hold it (0.6s) and it backspaces "first" and types "second":
-// "second time?" → a page to bring your stats in, from the cloud (cloud.js) or a backup file. hold again to switch back
-let introSecond = false;
-let introTyping = 0; // bumps on every retype, so an older one still running stops
-async function retypeIntro(word) {
+// first visit: "#1st time?" → the guide. hold it (0.6s) and it becomes "#cloud/JSON" → a page to bring your stats in,
+// from the cloud (cloud.js) or a backup file. hold again to switch back.
+// it arrives animated: the # pops in alone, in the middle, like a logo; then "1st time?" types out after it.
+// the line is centred, so the # slides left as the text grows
+let introTyping = 0; // bumps on every (re)type, so an older one still running stops
+async function retypeIntro(text, wait = 70) {
   const run = ++introTyping;
-  const el = $("introWord");
-  const step = () => new Promise((ok) => setTimeout(ok, 60));
+  const el = $("introRest");
+  const step = () => new Promise((ok) => setTimeout(ok, wait));
   while (el.textContent.length) {
     if (run !== introTyping) return;
     el.textContent = el.textContent.slice(0, -1);
     await step();
   }
-  for (const ch of word) {
+  for (const ch of text) {
     if (run !== introTyping) return;
     el.textContent += ch;
     await step();
   }
 }
+let introPlayed = false;
+function playIntro() {
+  if (introPlayed) return;
+  introPlayed = true;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return ($("introRest").textContent = "1st time?");
+  $("introHash").classList.add("pop"); // boom
+  setTimeout(() => retypeIntro("1st time?"), 900);
+}
+let introSecond = false;
 onLongPress($("introHelp"), () => {
   introSecond = !introSecond;
-  retypeIntro(introSecond ? "second" : "first");
+  $("introHelp").setAttribute("aria-label", introSecond ? "cloud or JSON" : "first time?");
+  retypeIntro(introSecond ? "cloud/JSON" : "1st time?", 55);
 }, 600);
 $("introHelp").onclick = () => {
   if (introSecond) return show($("startDialog"));
@@ -720,6 +732,14 @@ const leaveHelp = () => {
   if (helpFromMenu) show($("settingsDialog"));
 };
 $("helpDone").onclick = leaveHelp;
+// guide → import / export in the icon row: what it's for (full screen). back or tapping anywhere returns to the guide
+$("dataInfoBtn").onclick = () => show($("dataInfoDialog"));
+$("dataInfoBack").onclick = () => $("dataInfoDialog").close();
+$("dataInfoDialog").addEventListener("click", (e) => {
+  if (e.target.closest("button") !== $("dataInfoBack")) $("dataInfoDialog").close();
+});
+// first visit: "continue offline" → closes the guide onto the empty + page
+$("helpOffline").onclick = leaveHelp;
 $("helpDialog").addEventListener("click", (e) => {
   if (!helpFromMenu || e.target.closest("button, a")) return;
   leaveHelp();

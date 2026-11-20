@@ -64,17 +64,20 @@ function renderSettings() {
     themes.append(b);
   }
   $("holdNum").textContent = holdLabel(settings.hold);
+  $("holdVal").textContent = holdLabel(settings.hold); // the hold line shows the seconds chosen
   for (const b of document.querySelectorAll("[data-mode]")) {
     const [key, value] = b.dataset.mode.split(":");
     b.classList.toggle("on", settings[key] === value);
   }
+  // the pause line shows the number of taps chosen
+  $("pauseVal").textContent = { off: 0, tap: 1, double: 2 }[settings.timerPause];
   for (const b of document.querySelectorAll("[data-toggle]")) {
     b.classList.toggle("on", settings[b.dataset.toggle]);
     b.setAttribute("aria-checked", settings[b.dataset.toggle]);
   }
   $("themeVal").innerHTML = `<span class="dot" style="background:${THEMES[settings.theme].bg}"></span>${settings.theme}`;
 }
-// pause: 0☝ / 1☝ / 2☝ (stays open, so you can see what you picked)
+// pause: 0 / 1 / 2 taps (stays open, so you can see what you picked)
 for (const b of document.querySelectorAll("[data-mode]")) {
   const [key, value] = b.dataset.mode.split(":");
   b.onclick = () => {
@@ -146,11 +149,31 @@ function showTip(icon) {
   const box = tip.parentElement.getBoundingClientRect();
   const r = icon.getBoundingClientRect();
   // plain text, except {clock} becomes the clock icon (e.g. "a {clock} stat" = a timed stat)
+  // {restore} the restore icon (the button on a deleted stat's page), {reset} the reset icon, {delete} the (red) trash,
+  // {noreset} / {nodelete}: those two with a red cross over them
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]);
-  tip.innerHTML = esc(icon.dataset.tip).replaceAll("{clock}", '<svg class="ic tip-ic" aria-label="timed"><use href="#i-clock" /></svg>');
-  // the point (18px in from the bubble's left edge) sits under the icon's middle
-  tip.style.left = `${r.left + r.width / 2 - box.left - 18}px`;
+  tip.innerHTML = esc(icon.dataset.tip)
+    .replaceAll("{clock}", '<svg class="ic tip-ic" aria-label="timed"><use href="#i-clock" /></svg>')
+    .replaceAll("{restore}", '<svg class="ic tip-ic" aria-label="restoring"><use href="#i-restore" /></svg>')
+    .replaceAll("{reset}", '<svg class="ic tip-ic" aria-label="reset"><use href="#i-reset" /></svg>')
+    .replaceAll("{delete}", '<svg class="ic tip-ic danger" aria-label="deletes"><use href="#i-trash" /></svg>')
+    .replaceAll("{noreset}", '<svg class="ic tip-ic" aria-label="not resets"><use href="#i-reset-x" /></svg>')
+    .replaceAll("{nodelete}", '<svg class="ic tip-ic" aria-label="not deletes"><use href="#i-trash-x" /></svg>');
+  // one line, kept inside the settings column (so it never pushes the page sideways on a phone):
+  // ideally starting just left of the icon, shifted left if it would run off the right edge.
+  // the point stays under the icon's middle wherever the bubble ends up
+  // too long for one line across the column: the text shrinks until it fits
+  tip.style.fontSize = "";
+  if (tip.offsetWidth > box.width) {
+    const size = parseFloat(getComputedStyle(tip).fontSize);
+    const extra = tip.offsetWidth - tip.clientWidth + 20; // border + the 10px padding each side don't shrink
+    tip.style.fontSize = `${Math.floor(size * ((box.width - extra) / (tip.offsetWidth - extra)) * 10) / 10}px`;
+  }
+  const mid = r.left + r.width / 2 - box.left;
+  const left = Math.max(0, Math.min(mid - 18, box.width - tip.offsetWidth));
+  tip.style.left = `${left}px`;
   tip.style.top = `${r.bottom - box.top + 8}px`;
+  tip.style.setProperty("--point", `${mid - left - 4}px`);
   tip.classList.add("on");
   tipFor = icon;
   clearTimeout(tipTimer);

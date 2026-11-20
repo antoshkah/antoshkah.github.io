@@ -29,11 +29,12 @@
         serif:   { label: "serif", css: 'Georgia, "Times New Roman", serif' },
         rounded: { label: "rounded", css: 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif' },
       };
-      // hold times, in ms: 0.1s – 5s in 0.1s steps
-      const HOLD_MIN = 100, HOLD_MAX = 5000, HOLD_STEP = 100;
+      // hold times, in ms: 0.1s – 1.5s in 0.1s steps
+      const HOLD_MIN = 100, HOLD_MAX = 1500, HOLD_STEP = 100;
       const holdOk = (v, fallback) => {
         const n = Math.round(Number(v) / HOLD_STEP) * HOLD_STEP;
-        return Number.isFinite(n) && n >= HOLD_MIN && n <= HOLD_MAX ? n : fallback;
+        // out of range (e.g. saved back when the max was 5s): pulled in to the nearest end
+        return Number.isFinite(n) && n > 0 ? Math.min(HOLD_MAX, Math.max(HOLD_MIN, n)) : fallback;
       };
       const SETTINGS_KEY = "stats.settings";
       const OLD_SETTINGS_KEY = "stats.appearance"; // saved before the rename
@@ -99,10 +100,12 @@
     <button class="star" id="star" aria-label="Add a stat (hold for the menu)">
       <svg class="ic" aria-hidden="true"><use href="#i-plus" /></svg>
     </button>
-    <!-- first visit, straight on the off-white page: "first time?" (tap: the guide). hold it 0.6s and it retypes
-         itself as "second time?" (tap: a page with the cloud and import). hold again to switch back -->
+    <!-- first visit, straight on the off-white page: "#1 time?" (tap: the guide). hold it 0.6s and it retypes
+         itself as "#2 time?" (tap: a page with the cloud and import). hold again to switch back -->
     <div class="intro" id="intro" hidden>
-      <button class="intro-q" id="introHelp"><span id="introWord">first</span> time?</button>
+      <!-- "#1st time?": the # pops in alone in the middle, then "1st time?" types out after it (pushing it left as the
+           line grows, so it ends up centred). hold: "1st time?" backspaces away and "cloud/JSON" types in (app.js) -->
+      <button class="intro-q" id="introHelp" aria-label="first time?"><span class="intro-hash" id="introHash">#</span><span id="introRest"></span></button>
     </div>
     <button id="viewBack" aria-label="Stop viewing" hidden><svg class="ic"><use href="#i-exit" /></svg></button>
     <!-- tap the plus: type a name, then pick # (counted) or clock (timed, starts straight away) -->
@@ -120,6 +123,9 @@
       <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 17v3h16v-3" /></symbol>
       <symbol id="i-reset" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /></symbol>
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></symbol>
+      <!-- "not resets / not deletes" (the last action info bubble): the icon with a red cross over it -->
+      <symbol id="i-reset-x" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" /><path d="M5 5l14 14M19 5L5 19" style="stroke: var(--danger)" /></symbol>
+      <symbol id="i-trash-x" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /><path d="M5 5l14 14M19 5L5 19" style="stroke: var(--danger)" /></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></symbol>
       <!-- leave: square door frame + arrow, sharp corners -->
       <symbol id="i-exit" viewBox="0 0 24 24"><path d="M10 3H3v18h7M15 7l5 5-5 5M20 12H9" stroke-linejoin="miter" stroke-linecap="square" /></symbol>
@@ -320,33 +326,35 @@
       </div>
       <!-- hold: how long you hold a stat (counted or timed) to open its page. the + is fixed at 0.4s -->
       <div class="setting">
-        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="how long you hold a stat to open its page."><use href="#i-press" /></svg><span class="set-val">hold</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="how long you hold a stat to open its page."><use href="#i-press" /></svg><span class="set-val" id="holdVal">0.5s</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner">
           <div class="stepper hold-stepper" id="holdStepper"><button data-step="hold:-1" aria-label="Shorter">−</button><span id="holdNum"></span><button data-step="hold:1" aria-label="Longer">+</button></div>
         </div></div>
       </div>
-      <!-- pause: how timers are paused in the list. 0☝ = off (only on the stat page), 1☝ = tap, 2☝ = double tap -->
+      <!-- pause: how timers are paused in the list. 0 = off (only on the stat page), 1 = tap, 2 = double tap.
+           the line shows the number chosen; the choices are just 0 1 2, then "taps" -->
       <div class="setting">
-        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="pause a {clock} stat straight from the list: 0-2 taps."><use href="#i-pause" /></svg><span class="set-val">pause</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="pause a {clock} stat straight from the list: 0-2 taps."><use href="#i-pause" /></svg><span class="set-val" id="pauseVal">0</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner">
           <div class="modes">
-            <button data-mode="timerPause:off" aria-label="No tapping, pause on the stat page only"><span>0</span><svg class="finger"><use href="#i-finger" /></svg></button>
-            <button data-mode="timerPause:tap" aria-label="Tap to pause"><span>1</span><svg class="finger"><use href="#i-finger" /></svg></button>
-            <button data-mode="timerPause:double" aria-label="Double tap to pause"><span>2</span><svg class="finger"><use href="#i-finger" /></svg></button>
+            <button data-mode="timerPause:off" aria-label="No tapping, pause on the stat page only">0</button>
+            <button data-mode="timerPause:tap" aria-label="Tap to pause">1</button>
+            <button data-mode="timerPause:double" aria-label="Double tap to pause">2</button>
+            <span class="modes-unit">taps</span>
           </div>
         </div></div>
       </div>
       <!-- info: which greyed lines show on the stat page. each turns on / off on its own -->
       <div class="setting">
-        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="extra details shown on a stat's page, and toggle deleted stats list."><use href="#i-info" /></svg><span class="set-val">info</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
+        <button class="set-head"><svg class="ic set-ic" role="button" aria-label="What is this?" data-tip="extra details shown on a stat's page, and toggle deleted stats list."><use href="#i-info" /></svg><span class="set-val">more</span><svg class="ic chev"><use href="#i-chev" /></svg></button>
         <div class="set-body"><div class="set-inner">
           <!-- checkboxes, one per line, each on / off by itself. the ⓘ after each explains it (a bubble, doesn't tick) -->
           <div class="checks">
             <div class="check-row"><button class="box" data-toggle="showCreated" role="checkbox" aria-label="creation time"><svg><use href="#i-check" /></svg></button><span>creation time</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="when the stat was made."><use href="#i-info" /></svg></div>
-            <div class="check-row"><button class="box" data-toggle="showAge" role="checkbox" aria-label="stat age"><svg><use href="#i-check" /></svg></button><span>stat age</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="how long the stat has been active. restores resets age."><use href="#i-info" /></svg></div>
-            <div class="check-row"><button class="box" data-toggle="showLast" role="checkbox" aria-label="last action"><svg><use href="#i-check" /></svg></button><span>last action</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="the last action of the stat excluding resets & deletions."><use href="#i-info" /></svg></div>
-            <div class="check-row"><button class="box" data-toggle="showResets" role="checkbox" aria-label="reset count"><svg><use href="#i-check" /></svg></button><span>reset count</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="how many times the stat has been reset."><use href="#i-info" /></svg></div>
-            <div class="check-row"><button class="box" data-toggle="showLogs" role="checkbox" aria-label="show logs"><svg><use href="#i-check" /></svg></button><span>show logs</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="a list of the stat's resets, deletes and restores."><use href="#i-info" /></svg></div>
+            <div class="check-row"><button class="box" data-toggle="showAge" role="checkbox" aria-label="stat age"><svg><use href="#i-check" /></svg></button><span>stat age</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="time stat has been active. {restore} resets age."><use href="#i-info" /></svg></div>
+            <div class="check-row"><button class="box" data-toggle="showLast" role="checkbox" aria-label="last action"><svg><use href="#i-check" /></svg></button><span>last action</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="the last action of the stat ({noreset} {nodelete})."><use href="#i-info" /></svg></div>
+            <div class="check-row"><button class="box" data-toggle="showResets" role="checkbox" aria-label="reset count"><svg><use href="#i-check" /></svg></button><span>reset count</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="how many times the stat has been {reset}."><use href="#i-info" /></svg></div>
+            <div class="check-row"><button class="box" data-toggle="showLogs" role="checkbox" aria-label="show logs"><svg><use href="#i-check" /></svg></button><span>show logs</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="a list of the stat's {reset}, {delete} and {restore}."><use href="#i-info" /></svg></div>
             <div class="check-row"><button class="box" data-toggle="showDeleted" role="checkbox" aria-label="view deleted"><svg><use href="#i-check" /></svg></button><span>view deleted</span><svg class="ic check-ic" role="button" aria-label="What is this?" data-tip="lists deleted stats."><use href="#i-info" /></svg></div>
           </div>
         </div></div>
@@ -380,8 +388,8 @@
            (Samsung Internet is Android only). "On my phone" moves on to the ? / import screen -->
       <div class="welcome-how" id="welcomeHow" hidden>
         <ul class="browsers">
-          <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+safari+on+ios" target="_blank" rel="noopener">iOS</a></li>
-          <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+chrome+on+android" target="_blank" rel="noopener">Android</a></li>
+          <li style="--i: 0"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+safari+on+ios" target="_blank" rel="noopener">Safari</a></li>
+          <li style="--i: 1"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+chrome+on+android%2Fios" target="_blank" rel="noopener">Chrome</a></li>
           <li style="--i: 2"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+samsung+internet" target="_blank" rel="noopener">Samsung</a></li>
           <li style="--i: 3"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+opera+on+android%2Fios" target="_blank" rel="noopener">Opera</a></li>
           <li style="--i: 4"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+uc+browser+on+android%2Fios" target="_blank" rel="noopener">UC</a></li>
@@ -389,7 +397,7 @@
           <li style="--i: 6"><a href="https://www.google.com/search?q=how+to+add+a+website+to+home+screen+brave+on+android%2Fios" target="_blank" rel="noopener">Brave</a></li>
         </ul>
         <!-- already on the phone: straight on to the app -->
-        <button class="on-phone" id="howDone">on your phone?</button>
+        <button class="on-phone" id="howDone" aria-label="on your phone?">on your <svg class="ic" aria-hidden="true"><use href="#i-phone" /></svg>?</button>
       </div>
     </dialog>
 
@@ -436,25 +444,42 @@
       </div>
 
       <p class="tight">Hold <svg class="ic"><use href="#i-plus" /></svg> to open menu.</p>
+      <!-- first visit only (instead of the thumbs up): the cloud login, or on to the empty + page -->
+      <p class="first-only">To sync online click <button class="help-link" id="helpSync">here</button>, or continue <button class="help-link" id="helpOffline">offline</button>.</p>
       <ul class="legend">
         <!-- tap: the cloud sync info, full screen (cloudInfoDialog) -->
         <li><button class="legend-btn" id="cloudInfoBtn"><svg class="ic"><use href="#i-cloud" /></svg>cloud sync</button></li>
-        <li><span class="duo"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></span>import / export JSON</li>
+        <!-- tap: the import / export info, full screen (dataInfoDialog) -->
+        <li><button class="legend-btn" id="dataInfoBtn"><span class="duo"><svg class="ic"><use href="#i-import" /></svg><svg class="ic"><use href="#i-export" /></svg></span>import / export JSON</button></li>
         <li><b>A</b>settings</li>
       </ul>
 
       <button class="done" id="helpDone" aria-label="Got it"><svg class="ic"><use href="#i-up" /></svg></button>
     </dialog>
 
+    <!-- ? guide → import / export in the icon row: full screen, no border. back (or tapping anywhere) returns to the guide.
+         (importing replaces this device's stats + settings; connected, that change uploads and replaces the cloud's too) -->
+    <dialog id="dataInfoDialog" class="page">
+      <div class="cloud-info">
+        <h2 class="info-title">for offline use</h2>
+        <p>import/export JSON with all stats and settings.</p>
+        <p>importing overrides  all data (cloud + local).</p>
+      </div>
+      <div class="icons">
+        <button id="dataInfoBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
+      </div>
+    </dialog>
+
     <!-- ? guide → the cloud in the icon row: cloud sync + live view, full screen, no border. "here" deletes everything of yours in the cloud (cloud.js).
          back (or tapping anywhere else) returns to the guide -->
     <dialog id="cloudInfoDialog" class="page">
       <div class="cloud-info">
+        <h2 class="info-title">for online use</h2>
         <p>connects to backend via Supabase.</p>
         <p>data is upload-only.</p>
         <!-- "here" is only a button while connected; otherwise it's plain text -->
-        <p>delete your info on cloud <button class="help-link" id="cloudDeleteBtn">here</button>.</p>
-        <p><svg class="ic"><use href="#i-eye" /></svg> view to display stats live, ID must be unique.</p>
+        <p>delete cloud data <button class="help-link" id="cloudDeleteBtn">here</button>.</p>
+        <p><svg class="ic"><use href="#i-eye" /></svg> to display stats live, ID must be unique.</p>
       </div>
       <div class="icons">
         <button id="cloudInfoBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
