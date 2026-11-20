@@ -143,3 +143,48 @@
     }, OUT_MS + GAP_MS);
   });
 })();
+
+// kirby: idles (gentle bob, frames 28-58 looped) until clicked, then jumps and waves (frames 0-27) once
+(function () {
+  const kirby = document.getElementById("kirby");
+  const sprite = kirby && kirby.querySelector(".kirby-sprite");
+  if (!sprite) return;
+
+  const COLS = 10;
+  const ROWS = 6;
+  const FRAME_MS = 40;
+  const IDLE_START = 28;
+  const IDLE_END = 58;
+
+  let frame = IDLE_START;
+  let jumping = false;
+  let last = 0;
+
+  function show(i) {
+    const col = i % COLS;
+    const row = Math.floor(i / COLS);
+    sprite.style.backgroundPosition = `${(col / (COLS - 1)) * 100}% ${(row / (ROWS - 1)) * 100}%`;
+  }
+
+  function tick(now) {
+    if (now - last >= FRAME_MS) {
+      last = now;
+      frame += 1;
+      if (jumping && frame === IDLE_START) jumping = false; // jump finished, back to idling
+      if (!jumping && frame > IDLE_END) frame = IDLE_START;
+      show(frame);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  kirby.addEventListener("click", () => {
+    if (jumping) return;
+    jumping = true;
+    frame = 0;
+    last = performance.now();
+    show(frame);
+  });
+
+  show(frame);
+  requestAnimationFrame(tick);
+})();

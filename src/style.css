@@ -80,6 +80,34 @@ body.theme-dark {
   text-size-adjust: 100%;
 }
 
+/* kirby: sprite sheet (10 cols x 6 rows of 220x214 frames) stepped by script.js */
+.kirby {
+  position: relative;
+  display: block;
+  width: 110px;
+  max-width: 35vw;
+  aspect-ratio: 220 / 214;
+  margin: 0 auto 0.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kirby:focus-visible {
+  outline: 1px dashed currentColor;
+  outline-offset: 4px;
+}
+
+.kirby-sprite {
+  position: absolute;
+  inset: 0;
+  background: url("images/kirby-sprite.png") no-repeat;
+  background-size: 1000% 600%;
+  background-position: 0% 0%;
+}
+
 .link {
   text-decoration: none;
   color: inherit;
@@ -95,9 +123,12 @@ body.theme-dark {
   outline: none;
 }
 
-.link-disabled {
-  opacity: 0.4;
+.link-disabled,
+.link-disabled:hover {
+  opacity: 0.45;
   cursor: default;
+  color: inherit;
+  border-color: transparent;
 }
 
 .about-card {
@@ -517,8 +548,6 @@ body.theme-dark .site-theme-toggle-icon {
   }
 }
 
-
-
 /* "powered by Claude Code" on self.info(): types itself out, the little guy as the cursor (powered.js) */
 .pb-text {
   position: relative;
@@ -636,4 +665,72 @@ html.page-enter main {
 
 .back-nudge .icon-svg {
   transform: translateX(-6px);
+}
+
+/* "wip" placeholders: cut-out newspaper letters, ransom-note style */
+.wip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.15rem 0;
+}
+
+.wip-cut {
+  display: inline-block;
+  min-width: 1.35em;
+  padding: 0.12em 0.22em 0.08em;
+  line-height: 1;
+  text-align: center;
+  color: #1f1f1f;
+  background: #f4efe4;
+  box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.18);
+  clip-path: polygon(3% 6%, 96% 0, 100% 92%, 7% 100%, 0 48%);
+}
+
+.wip-cut:nth-child(1) {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  transform: rotate(-7deg) translateY(1px);
+}
+
+.wip-cut:nth-child(2) {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 1.25rem;
+  color: #f4efe4;
+  background: #1f1f1f;
+  transform: rotate(5deg) translateY(-3px);
+}
+
+.wip-cut:nth-child(3) {
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size: 1.35rem;
+  background: #e9dfc6;
+  transform: rotate(-3deg) translateY(2px);
+}
+
+/* the second placeholder gets a different paste-up so they don't match */
+.wip + .wip .wip-cut:nth-child(1) {
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  font-style: normal;
+  background: #e9dfc6;
+  transform: rotate(4deg) translateY(-2px);
+}
+
+.wip + .wip .wip-cut:nth-child(2) {
+  font-family: Georgia, serif;
+  font-weight: 700;
+  color: #1f1f1f;
+  background: #f4efe4;
+  transform: rotate(-6deg) translateY(2px);
+}
+
+.wip + .wip .wip-cut:nth-child(3) {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-style: normal;
+  color: #f4efe4;
+  background: #1f1f1f;
+  transform: rotate(7deg) translateY(-1px);
 }
