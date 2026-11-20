@@ -674,6 +674,12 @@ body.viewing .row .count { cursor: default; }
 .login-msg { min-height: 1.2em; font-size: 0.8rem; font-weight: normal; color: var(--muted); overflow-wrap: anywhere; }
 .account-email { font-size: 1rem; overflow-wrap: anywhere; }
 .account-out { padding: 10px 18px; border: 1.5px solid currentColor; font-size: 0.9rem; }
+.account-out[hidden], .share-on[hidden] { display: none; }
+/* shared: the link (tap to open it), then share / stop */
+.share-on { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.share-link { font-size: 0.75rem; font-weight: normal; color: var(--muted); overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }
+.share-btns { display: flex; gap: 22px; font-size: 0.85rem; }
+.share-btns button { padding: 6px 0; text-decoration: underline; text-underline-offset: 3px; }
 
 .hms { display: flex; justify-content: center; gap: 22px; margin: 10px 0 20px; }
 .hms label { display: flex; align-items: baseline; gap: 3px; color: var(--muted); font-size: 1.4rem; }

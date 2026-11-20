@@ -223,6 +223,15 @@
       <div class="account-in" id="accountIn" hidden>
         <div class="account-email" id="accountEmail"></div>
         <div class="login-msg" id="accountState"></div>
+        <!-- live view: a read-only page (live.html) anyone with the link can watch -->
+        <button class="account-out" id="shareBtn">share live view</button>
+        <div class="share-on" id="shareOn" hidden>
+          <a class="share-link" id="shareLink" target="_blank" rel="noopener"></a>
+          <div class="share-btns">
+            <button id="copyShare">share link</button>
+            <button id="stopShare" class="danger">stop sharing</button>
+          </div>
+        </div>
         <button class="account-out" id="logoutBtn">log out</button>
       </div>
       <div class="icons">
