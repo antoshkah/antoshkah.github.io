@@ -1,8 +1,17 @@
+<br />
+
 <p align="center">
   <a href="https://antoshkah.github.io">visit portfolio.</a>
-  <br />
+</p>
+
+<br />
+
+<p align="center">
   <a href="https://antoshkah.github.io/stats/">#stats</a>
 </p>
+
+<br />
+<br />
 
 <p align="center">
   <picture>
@@ -10,3 +19,5 @@
     <img src=".github/assets/powered-light.svg" alt="powered by Claude Code" />
   </picture>
 </p>
+
+<br />

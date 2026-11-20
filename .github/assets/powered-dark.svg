@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="228" height="30" viewBox="0 0 228 30" role="img" aria-label="powered by Claude Code" shape-rendering="crispEdges">
+<svg xmlns="http://www.w3.org/2000/svg" width="269" height="30" viewBox="0 0 269 30" role="img" aria-label="powered by Claude Code" shape-rendering="crispEdges">
 <style>
 text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;font-size:14px;fill:#e8e3db;opacity:0}
 .b{font-weight:700;fill:#d97757}
@@ -47,29 +47,29 @@ text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",mo
 .l21{animation:l21 8s linear infinite}
 @keyframes l21{0%,25.875%{opacity:0;transform:translateX(10px) scale(.2)}27.875%,80%{opacity:1;transform:none}86.25%,100%{opacity:0;transform:none}}
 .walk{animation:walk 8s linear infinite}
-@keyframes walk{0%,7.5%{transform:translateX(4px)}8.125%{transform:translateX(12.4px)}8.375%{transform:translateX(12.4px)}9%{transform:translateX(20.8px)}9.25%{transform:translateX(20.8px)}9.875%{transform:translateX(29.2px)}10.125%{transform:translateX(29.2px)}10.75%{transform:translateX(37.6px)}11%{transform:translateX(37.6px)}11.625%{transform:translateX(46px)}11.875%{transform:translateX(46px)}12.5%{transform:translateX(54.4px)}12.75%{transform:translateX(54.4px)}13.375%{transform:translateX(62.8px)}13.625%{transform:translateX(62.8px)}14.25%{transform:translateX(71.2px)}14.5%{transform:translateX(71.2px)}15.125%{transform:translateX(79.6px)}15.375%{transform:translateX(79.6px)}16%{transform:translateX(88px)}16.25%{transform:translateX(88px)}16.875%{transform:translateX(96.4px)}17.125%{transform:translateX(96.4px)}17.75%{transform:translateX(104.8px)}18%{transform:translateX(104.8px)}18.625%{transform:translateX(113.2px)}18.875%{transform:translateX(113.2px)}19.5%{transform:translateX(121.6px)}19.75%{transform:translateX(121.6px)}20.375%{transform:translateX(130px)}20.625%{transform:translateX(130px)}21.25%{transform:translateX(138.4px)}21.5%{transform:translateX(138.4px)}22.125%{transform:translateX(146.8px)}22.375%{transform:translateX(146.8px)}23%{transform:translateX(155.2px)}23.25%{transform:translateX(155.2px)}23.875%{transform:translateX(163.6px)}24.125%{transform:translateX(163.6px)}24.75%{transform:translateX(172px)}25%{transform:translateX(172px)}25.625%{transform:translateX(180.4px)}25.875%{transform:translateX(180.4px)}26.5%{transform:translateX(188.8px)}26.75%{transform:translateX(188.8px)}27.625%,100%{transform:translateX(194.8px)}}
+@keyframes walk{0%,7.5%{transform:translateX(42px)}8.125%{transform:translateX(50.4px)}8.375%{transform:translateX(50.4px)}9%{transform:translateX(58.8px)}9.25%{transform:translateX(58.8px)}9.875%{transform:translateX(67.2px)}10.125%{transform:translateX(67.2px)}10.75%{transform:translateX(75.6px)}11%{transform:translateX(75.6px)}11.625%{transform:translateX(84px)}11.875%{transform:translateX(84px)}12.5%{transform:translateX(92.4px)}12.75%{transform:translateX(92.4px)}13.375%{transform:translateX(100.8px)}13.625%{transform:translateX(100.8px)}14.25%{transform:translateX(109.2px)}14.5%{transform:translateX(109.2px)}15.125%{transform:translateX(117.6px)}15.375%{transform:translateX(117.6px)}16%{transform:translateX(126px)}16.25%{transform:translateX(126px)}16.875%{transform:translateX(134.4px)}17.125%{transform:translateX(134.4px)}17.75%{transform:translateX(142.8px)}18%{transform:translateX(142.8px)}18.625%{transform:translateX(151.2px)}18.875%{transform:translateX(151.2px)}19.5%{transform:translateX(159.6px)}19.75%{transform:translateX(159.6px)}20.375%{transform:translateX(168px)}20.625%{transform:translateX(168px)}21.25%{transform:translateX(176.4px)}21.5%{transform:translateX(176.4px)}22.125%{transform:translateX(184.8px)}22.375%{transform:translateX(184.8px)}23%{transform:translateX(193.2px)}23.25%{transform:translateX(193.2px)}23.875%{transform:translateX(201.6px)}24.125%{transform:translateX(201.6px)}24.75%{transform:translateX(210px)}25%{transform:translateX(210px)}25.625%{transform:translateX(218.4px)}25.875%{transform:translateX(218.4px)}26.5%{transform:translateX(226.8px)}26.75%{transform:translateX(226.8px)}27.625%,100%{transform:translateX(232.8px)}}
 .guy{transform-box:fill-box;transform-origin:center;animation:guy 8s ease-in infinite}
 @keyframes guy{0%,3.75%{opacity:0;transform:scale(1)}6.25%,27.625%{opacity:1;transform:scale(1)}28.875%{opacity:1;transform:scale(1.12)}31.375%,100%{opacity:0;transform:scale(0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}text{opacity:1}.walk{display:none}}
 </style>
-  <text class="l l0" x="4" y="20">p</text>
-  <text class="l l1" x="12.4" y="20">o</text>
-  <text class="l l2" x="20.8" y="20">w</text>
-  <text class="l l3" x="29.2" y="20">e</text>
-  <text class="l l4" x="37.6" y="20">r</text>
-  <text class="l l5" x="46" y="20">e</text>
-  <text class="l l6" x="54.4" y="20">d</text>
-  <text class="l l8" x="71.2" y="20">b</text>
-  <text class="l l9" x="79.6" y="20">y</text>
-  <text class="l l11 b" x="96.4" y="20">C</text>
-  <text class="l l12 b" x="104.8" y="20">l</text>
-  <text class="l l13 b" x="113.2" y="20">a</text>
-  <text class="l l14 b" x="121.6" y="20">u</text>
-  <text class="l l15 b" x="130" y="20">d</text>
-  <text class="l l16 b" x="138.4" y="20">e</text>
-  <text class="l l18 b" x="155.2" y="20">C</text>
-  <text class="l l19 b" x="163.6" y="20">o</text>
-  <text class="l l20 b" x="172" y="20">d</text>
-  <text class="l l21 b" x="180.4" y="20">e</text>
+  <text class="l l0" x="42" y="20">p</text>
+  <text class="l l1" x="50.4" y="20">o</text>
+  <text class="l l2" x="58.8" y="20">w</text>
+  <text class="l l3" x="67.2" y="20">e</text>
+  <text class="l l4" x="75.6" y="20">r</text>
+  <text class="l l5" x="84" y="20">e</text>
+  <text class="l l6" x="92.4" y="20">d</text>
+  <text class="l l8" x="109.2" y="20">b</text>
+  <text class="l l9" x="117.6" y="20">y</text>
+  <text class="l l11 b" x="134.4" y="20">C</text>
+  <text class="l l12 b" x="142.8" y="20">l</text>
+  <text class="l l13 b" x="151.2" y="20">a</text>
+  <text class="l l14 b" x="159.6" y="20">u</text>
+  <text class="l l15 b" x="168" y="20">d</text>
+  <text class="l l16 b" x="176.4" y="20">e</text>
+  <text class="l l18 b" x="193.2" y="20">C</text>
+  <text class="l l19 b" x="201.6" y="20">o</text>
+  <text class="l l20 b" x="210" y="20">d</text>
+  <text class="l l21 b" x="218.4" y="20">e</text>
   <g class="walk"><g transform="translate(0 8) scale(1.5)"><g class="guy px"><rect x="3" y="0" width="1" height="2"/><rect x="4" y="0" width="1" height="2"/><rect x="5" y="0" width="1" height="2"/><rect x="6" y="0" width="1" height="2"/><rect x="7" y="0" width="1" height="2"/><rect x="8" y="0" width="1" height="2"/><rect x="9" y="0" width="1" height="2"/><rect x="10" y="0" width="1" height="2"/><rect x="11" y="0" width="1" height="2"/><rect x="12" y="0" width="1" height="2"/><rect x="13" y="0" width="1" height="2"/><rect x="14" y="0" width="1" height="2"/><rect x="3" y="2" width="1" height="2"/><rect x="4" y="2" width="1" height="2"/><rect x="6" y="2" width="1" height="2"/><rect x="7" y="2" width="1" height="2"/><rect x="8" y="2" width="1" height="2"/><rect x="9" y="2" width="1" height="2"/><rect x="10" y="2" width="1" height="2"/><rect x="11" y="2" width="1" height="2"/><rect x="13" y="2" width="1" height="2"/><rect x="14" y="2" width="1" height="2"/><rect x="1" y="4" width="1" height="2"/><rect x="2" y="4" width="1" height="2"/><rect x="3" y="4" width="1" height="2"/><rect x="4" y="4" width="1" height="2"/><rect x="5" y="4" width="1" height="2"/><rect x="6" y="4" width="1" height="2"/><rect x="7" y="4" width="1" height="2"/><rect x="8" y="4" width="1" height="2"/><rect x="9" y="4" width="1" height="2"/><rect x="10" y="4" width="1" height="2"/><rect x="11" y="4" width="1" height="2"/><rect x="12" y="4" width="1" height="2"/><rect x="13" y="4" width="1" height="2"/><rect x="14" y="4" width="1" height="2"/><rect x="15" y="4" width="1" height="2"/><rect x="16" y="4" width="1" height="2"/><rect x="3" y="6" width="1" height="2"/><rect x="4" y="6" width="1" height="2"/><rect x="5" y="6" width="1" height="2"/><rect x="6" y="6" width="1" height="2"/><rect x="7" y="6" width="1" height="2"/><rect x="8" y="6" width="1" height="2"/><rect x="9" y="6" width="1" height="2"/><rect x="10" y="6" width="1" height="2"/><rect x="11" y="6" width="1" height="2"/><rect x="12" y="6" width="1" height="2"/><rect x="13" y="6" width="1" height="2"/><rect x="14" y="6" width="1" height="2"/><g class="la"><rect x="4" y="8" width="1" height="2"/><rect x="6" y="8" width="1" height="2"/><rect x="11" y="8" width="1" height="2"/><rect x="13" y="8" width="1" height="2"/></g><g class="lb"><rect x="3" y="8" width="1" height="2"/><rect x="5" y="8" width="1" height="2"/><rect x="12" y="8" width="1" height="2"/><rect x="14" y="8" width="1" height="2"/></g></g></g></g>
 </svg>
