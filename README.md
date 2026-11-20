@@ -18,9 +18,6 @@
   </a>
 </p>
 
-<br />
-<br />
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/powered-dark.svg" />
