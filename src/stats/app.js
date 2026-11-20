@@ -132,6 +132,7 @@ function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(stats));
   } catch {}
+  if (typeof cloudQueue === "function") cloudQueue(); // logged in: copy the change up to the cloud (cloud.js loads last)
 }
 
 // first-timers see an i instead of the star until they've read the guide or imported

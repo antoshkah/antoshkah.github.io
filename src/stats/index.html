@@ -130,6 +130,7 @@
       <!-- restore: an undo arrow (different from reset's circle) -->
       <symbol id="i-restore" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="square" stroke-linejoin="miter" /></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.3 9.1 4.5 4.5 0 0 0 7 18Z" /></symbol>
       <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
       <symbol id="i-colour" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" /></symbol>
       <!-- the walkthrough's pointing glove, as an outline -->
@@ -205,6 +206,27 @@
         <button id="exportBtn" aria-label="Export"><svg class="ic"><use href="#i-export" /></svg></button>
         <button id="settingsBtn" aria-label="Settings"><span class="glyph">A</span></button>
         <button id="helpBtn" aria-label="How to use"><span class="glyph">?</span></button>
+        <button id="accountBtn" aria-label="Account"><svg class="ic"><use href="#i-cloud" /></svg></button>
+      </div>
+    </dialog>
+
+    <!-- menu → cloud: log in to sync your stats (dev: one account, sign-ups are off in Supabase). see cloud.js -->
+    <dialog id="accountDialog" class="page">
+      <form class="login" id="loginForm">
+        <input id="loginEmail" type="email" autocomplete="username" placeholder="email" aria-label="Email" />
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="password" aria-label="Password" />
+        <div class="login-msg" id="loginError"></div>
+        <div class="icons">
+          <button type="submit" aria-label="Log in"><svg class="ic"><use href="#i-check" /></svg></button>
+        </div>
+      </form>
+      <div class="account-in" id="accountIn" hidden>
+        <div class="account-email" id="accountEmail"></div>
+        <div class="login-msg" id="accountState"></div>
+        <button class="account-out" id="logoutBtn">log out</button>
+      </div>
+      <div class="icons">
+        <button id="accountBack" class="muted" aria-label="Back"><svg class="ic"><use href="#i-exit" /></svg></button>
       </div>
     </dialog>
 
@@ -423,8 +445,9 @@
         </div>
       </div>
 
-      <p>Hold the <svg class="ic"><use href="#i-plus" /></svg> to open the menu.
+      <p class="tight">Hold the <svg class="ic"><use href="#i-plus" /></svg> to open the menu.
       All stats and settings are stored <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" target="_blank" rel="noopener">locally</a>, and can be exported/imported via JSON.</p>
+      <p class="soon">(live view coming in 2.0)</p>
       <ul class="legend">
         <li><svg class="ic"><use href="#i-import" /></svg>imports JSON</li>
         <li><svg class="ic"><use href="#i-export" /></svg>exports JSON</li>
@@ -440,6 +463,7 @@
     <script src="demo.js"></script>
     <script src="settings.js"></script>
     <script src="welcome.js"></script>
+    <script src="cloud.js"></script>
     <script src="start.js"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@ function saveSettings() {
   } catch {}
   applySettings(settings);
   renderSettings();
+  if (typeof cloudQueue === "function") cloudQueue(); // logged in: copy the change up to the cloud (cloud.js loads last)
 }
 const holdLabel = (ms) => `${(ms / 1000).toFixed(1)}s`;
 // font list: one button per font, made once and only ever reordered (chosen font first)

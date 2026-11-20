@@ -1,7 +1,7 @@
 // Offline support: serve from cache, refresh cache in the background.
 // Bump VERSION when you change the app files.
 const VERSION = "stats-v83";
-const FILES = ["./", "index.html", "style.css", "app.js", "demo.js", "settings.js", "welcome.js", "start.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "../fonts/ia-writer-mono-latin-400-normal.ttf", "../fonts/ia-writer-mono-latin-700-normal.ttf", "../fonts/ia-writer-mono-latin-400-italic.ttf"];
+const FILES = ["./", "index.html", "style.css", "app.js", "demo.js", "settings.js", "welcome.js", "cloud.js", "start.js", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "../fonts/ia-writer-mono-latin-400-normal.ttf", "../fonts/ia-writer-mono-latin-700-normal.ttf", "../fonts/ia-writer-mono-latin-400-italic.ttf"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)));
@@ -17,6 +17,8 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // only this site's own files: never cache other sites (the Supabase API must always be live)
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then((cached) => {
       const network = fetch(e.request)
