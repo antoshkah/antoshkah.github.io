@@ -734,3 +734,84 @@ html.page-enter main {
   background: #1f1f1f;
   transform: rotate(7deg) translateY(-1px);
 }
+
+/* main screen "app" link: the same cut-out letters, pasted up bigger and louder so it stands out */
+.wip-app {
+  gap: 0.22rem;
+  padding: 0.3rem 0.2rem;
+  border-bottom: none;
+}
+
+.wip-app:hover,
+.wip-app:focus-visible {
+  color: inherit;
+}
+
+.wip-app .wip-cut {
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.28);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+/* strictly black and white: white / black / white */
+.wip-app .wip-cut:nth-child(1) {
+  font-size: 1.9rem;
+  color: #000;
+  background: #fff;
+  transform: rotate(-8deg) translateY(2px);
+}
+
+.wip-app .wip-cut:nth-child(2) {
+  font-family: Impact, "Arial Black", sans-serif;
+  font-size: 1.65rem;
+  color: #fff;
+  background: #000;
+  transform: rotate(6deg) translateY(-4px);
+}
+
+.wip-app .wip-cut:nth-child(3) {
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  font-style: normal;
+  font-size: 1.75rem;
+  color: #000;
+  background: #fff;
+  transform: rotate(-4deg) translateY(1px);
+}
+
+/* dark theme inverts the paste-up: black / white / black */
+body.theme-dark .wip-app .wip-cut:nth-child(1),
+body.theme-dark .wip-app .wip-cut:nth-child(3) {
+  color: #fff;
+  background: #000;
+}
+
+body.theme-dark .wip-app .wip-cut:nth-child(2) {
+  color: #000;
+  background: #fff;
+}
+
+.wip-app:hover .wip-cut,
+.wip-app:focus-visible .wip-cut {
+  box-shadow: 3px 5px 0 rgba(0, 0, 0, 0.32);
+}
+
+.wip-app:hover .wip-cut:nth-child(1),
+.wip-app:focus-visible .wip-cut:nth-child(1) {
+  transform: rotate(-11deg) translateY(-2px);
+}
+
+.wip-app:hover .wip-cut:nth-child(2),
+.wip-app:focus-visible .wip-cut:nth-child(2) {
+  transform: rotate(9deg) translateY(-8px);
+}
+
+.wip-app:hover .wip-cut:nth-child(3),
+.wip-app:focus-visible .wip-cut:nth-child(3) {
+  transform: rotate(-7deg) translateY(-3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wip-app .wip-cut {
+    transition: none;
+  }
+}
