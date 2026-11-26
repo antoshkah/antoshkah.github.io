@@ -939,9 +939,9 @@ body.front-page {
 }
 
 /* kirby's line, typed out letter by letter; w / i / p are pasted-up newspaper cut-outs like the "app" link */
-/* four centered rows: "this site is" / work / in / progress. (space reserved so nothing jumps when it appears) */
+/* two centered rows: "site is" / wip (space reserved so nothing jumps when it appears) */
 .kirby-says {
-  min-height: calc(4 * 2em);
+  min-height: calc(2 * 2em);
   margin: 0;
   font-size: 1.05rem;
   line-height: 2em;

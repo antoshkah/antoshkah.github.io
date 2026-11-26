@@ -203,9 +203,9 @@
   const HOLD_END = 20;
 
   const says = document.getElementById("kirby-says");
-  const LINE = "this site is work in progress.";
-  const CUTS = { 13: 1, 18: 2, 21: 3 }; // index of the w, i, p -> which cut-out style
-  const BREAKS = { 12: true, 17: true, 20: true }; // spaces that become line breaks: "this site is" / work / in / progress.
+  const LINE = "site is wip";
+  const CUTS = { 8: 1, 9: 2, 10: 3 }; // index of the w, i, p -> which cut-out style
+  const BREAKS = { 7: true }; // spaces that become line breaks: "site is" / wip
 
   let frame = IDLE_START;
   let jumping = false;
