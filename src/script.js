@@ -50,6 +50,9 @@
   const pageBody = document.body;
   const themeToggleEl = document.getElementById("site-theme-toggle");
 
+  // the wip front page has one fixed grey look: no dark mode, ignore any saved theme
+  if (pageBody.classList.contains("front-page")) return;
+
   function applyTheme(theme) {
     const isDark = theme === "dark";
     pageBody.classList.toggle("theme-dark", isDark);
@@ -144,7 +147,47 @@
   });
 })();
 
-// kirby: idles (gentle bob, frames 28-58 looped) until clicked, then jumps and waves (frames 0-27) once
+// front page cat: spins; first click -> "*meow*" bubble fades in, second click -> it flies off and kirby pops up
+(function () {
+  const catWrap = document.getElementById("cat-wrap");
+  const cat = document.getElementById("cat");
+  const bubble = document.getElementById("cat-bubble");
+  const kirby = document.getElementById("kirby");
+  if (!catWrap || !cat || !bubble || !kirby) return;
+
+  let clicks = 0;
+
+  cat.addEventListener("click", () => {
+    clicks += 1;
+    if (clicks === 1) {
+      bubble.classList.add("is-visible");
+      return;
+    }
+    if (clicks > 2) return;
+
+    bubble.classList.remove("is-visible");
+    const keyboard = cat.matches(":focus-visible"); // only hand focus on to kirby for keyboard users
+    catWrap.classList.add("is-leaving");
+    let done = false;
+    const bringKirby = () => {
+      if (done) return;
+      done = true;
+      catWrap.hidden = true;
+      kirby.hidden = false;
+      kirby.classList.add("is-popping");
+      kirby.addEventListener("animationend", () => kirby.classList.remove("is-popping"), { once: true });
+      if (keyboard) kirby.focus({ preventScroll: true });
+    };
+    catWrap.addEventListener("transitionend", (e) => {
+      if (e.target === catWrap) bringKirby(); // ignore the bubble's own fade bubbling up
+    });
+    setTimeout(bringKirby, 900); // fallback if transitionend never fires
+  });
+})();
+
+// kirby: idles (gentle bob, frames 28-58 looped) until clicked, then jumps and waves (frames 0-27) once.
+// on the front page the first click also types out "this site is work in progress" below him, and he keeps
+// jumping at you until the line is finished
 (function () {
   const kirby = document.getElementById("kirby");
   const sprite = kirby && kirby.querySelector(".kirby-sprite");
@@ -155,10 +198,51 @@
   const FRAME_MS = 40;
   const IDLE_START = 28;
   const IDLE_END = 58;
+  const TYPE_MS = 75;
+  const HOLD_START = 9;
+  const HOLD_END = 20;
+
+  const says = document.getElementById("kirby-says");
+  const LINE = "this site is work in progress.";
+  const CUTS = { 13: 1, 18: 2, 21: 3 }; // index of the w, i, p -> which cut-out style
 
   let frame = IDLE_START;
   let jumping = false;
+  let talking = false;
+  let dir = 1;
+  let said = false;
   let last = 0;
+
+  // lay the whole line out up front (hidden) so the centered text doesn't shift as it types
+  function prepareLine() {
+    says.textContent = "";
+    const label = document.createElement("span");
+    label.className = "sr-only";
+    label.textContent = LINE;
+    says.appendChild(label);
+    return [...LINE].map((c, i) => {
+      const span = document.createElement("span");
+      span.className = CUTS[i] ? `ch say-cut say-cut-${CUTS[i]}` : "ch";
+      span.setAttribute("aria-hidden", "true");
+      span.textContent = c;
+      says.appendChild(span);
+      return span;
+    });
+  }
+
+  function typeLine() {
+    const chars = prepareLine();
+    talking = true;
+    let i = 0;
+    const timer = setInterval(() => {
+      chars[i].classList.add("is-typed");
+      i += 1;
+      if (i >= chars.length) {
+        clearInterval(timer);
+        talking = false; // current jump plays out, then back to idling
+      }
+    }, TYPE_MS);
+  }
 
   function show(i) {
     const col = i % COLS;
@@ -169,7 +253,12 @@
   function tick(now) {
     if (now - last >= FRAME_MS) {
       last = now;
-      frame += 1;
+      // while talking, hold the "facing you" stretch of the jump (frames 9-20) by ping-ponging through it,
+      // so it reads as one long jump; once the line is typed it lands (21-27) and goes back to idling
+      if (jumping && talking && frame >= HOLD_END) dir = -1;
+      if (jumping && dir === -1 && frame <= HOLD_START) dir = 1;
+      if (!talking) dir = 1;
+      frame += dir;
       if (jumping && frame === IDLE_START) jumping = false; // jump finished, back to idling
       if (!jumping && frame > IDLE_END) frame = IDLE_START;
       show(frame);
@@ -183,6 +272,10 @@
     frame = 0;
     last = performance.now();
     show(frame);
+    if (says && !said) {
+      said = true;
+      typeLine();
+    }
   });
 
   show(frame);

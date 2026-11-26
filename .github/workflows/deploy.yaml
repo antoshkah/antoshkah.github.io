@@ -30,10 +30,19 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # work-in-progress mode: publish only the front page and what it needs, so the other
+      # sections (main/, about/, app/, clock/, misc/) stay in the repo but aren't on the site
+      - name: Collect front page
+        run: |
+          mkdir -p _site/images
+          cp src/index.html src/style.css src/script.js _site/
+          cp -r src/fonts _site/
+          cp src/images/favicon.png src/images/mc-cat.png src/images/kirby-sprite.png _site/images/
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: src
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
