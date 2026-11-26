@@ -1,23 +1,29 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>try{if(sessionStorage.getItem("site-fade-in")==="1"){sessionStorage.removeItem("site-fade-in");document.documentElement.classList.add("page-enter")}}catch(e){}</script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>apalmeirim</title>
     <link rel="icon" type="image/png" href="images/favicon.png" />
-    <meta http-equiv="refresh" content="0; url=main/" />
-    <link rel="canonical" href="main/" />
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
-    <main class="center">
-      <nav class="links" aria-label="Primary">
-        <a class="link" href="main/">main</a>
-        <a class="link" href="about/">about</a>
-      </nav>
-      <div class="page-footer">
-      </div>
+  <body class="front-page">
+    <main class="center front">
+      <section class="about-card">
+        <!-- intro: spinning cat (click: meow, click again: it leaves) -> kirby pops up (click: "this site is work in progress") -->
+        <div class="stage">
+          <div class="cat-wrap" id="cat-wrap">
+            <div class="speech-bubble" id="cat-bubble" aria-hidden="true">*meow*</div>
+            <button class="cat" id="cat" type="button" aria-label="pet the cat">
+              <img class="cat-img" src="images/mc-cat.png" alt="" draggable="false" />
+            </button>
+          </div>
+          <button class="kirby" id="kirby" type="button" aria-label="say hi to kirby" hidden>
+            <span class="kirby-sprite" aria-hidden="true"></span>
+          </button>
+        </div>
+        <p class="kirby-says" id="kirby-says" aria-live="polite"></p>
+      </section>
     </main>
     <script src="script.js"></script>
   </body>
