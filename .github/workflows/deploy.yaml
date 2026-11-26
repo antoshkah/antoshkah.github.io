@@ -1,8 +1,9 @@
 ﻿name: Deploy to GitHub Pages
 
+# only the release branch goes live; develop (and main) never deploy
 on:
   push:
-    branches: [ main ]
+    branches: [ release ]
     paths:
       - 'src/**'
       - '.github/workflows/deploy.yaml'
@@ -19,6 +20,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/release' # manual runs from any other branch do nothing
     runs-on: ubuntu-latest
     environment:
       name: github-pages
