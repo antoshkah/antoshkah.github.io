@@ -205,6 +205,7 @@
   const says = document.getElementById("kirby-says");
   const LINE = "this site is work in progress.";
   const CUTS = { 13: 1, 18: 2, 21: 3 }; // index of the w, i, p -> which cut-out style
+  const BREAKS = { 12: true, 17: true, 20: true }; // spaces that become line breaks: "this site is" / work / in / progress.
 
   let frame = IDLE_START;
   let jumping = false;
@@ -224,7 +225,7 @@
       const span = document.createElement("span");
       span.className = CUTS[i] ? `ch say-cut say-cut-${CUTS[i]}` : "ch";
       span.setAttribute("aria-hidden", "true");
-      span.textContent = c;
+      span.textContent = BREAKS[i] ? "\n" : c;
       says.appendChild(span);
       return span;
     });
